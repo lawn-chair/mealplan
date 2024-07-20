@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.handle {
+    cursor: move;
+    cursor: -webkit-grabbing;
+    display: inline-flex;
+    justify-content: center;
+    height: 3rem;
+    max-height: 3rem;
+    flex-shrink: 0;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    text-align: center;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.ghost {
+    opacity: 0.9;
+}
+
+.drag {
+    display: none;
+}
