@@ -1,7 +1,7 @@
 <script>
     /** @type {import('./$types').PageData} */
     export let data;
-	import RecipeCard from './RecipeCard.svelte';
+	import RecipeCard from '$lib/RecipeCard.svelte';
     import RecipeForm from './[slug]/RecipeForm.svelte';
     import Navbar from '../Navbar.svelte'
     let newRecipe = false;
