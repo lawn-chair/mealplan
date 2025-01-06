@@ -2,9 +2,13 @@
     import { createEventDispatcher } from "svelte";
     import { onMount } from "svelte";
     import Sortable from 'sortablejs';
+    import { API } from '$lib/api';
+	import { invalidateAll, goto } from '$app/navigation';
+	import { applyAction, deserialize } from '$app/forms';
 
     import type { RecipeData } from '$lib/types.js';
 	import Ingredient from '$lib/Ingredient.svelte';
+	import { parseFormValues } from "$lib/utils";
 
     const dispatch = createEventDispatcher();
 
@@ -45,6 +49,32 @@
         });
         console.log("after: ", data.steps);
     }
+
+	/** @param {SubmitEvent & { currentTarget: EventTarget & HTMLFormElement}} event */
+    async function handleSubmit(event) {
+		event.preventDefault();
+        updateSteps();
+		const data = new FormData(event.currentTarget);
+        const parsedData = parseFormValues(data);
+
+		const response = await fetch(API + '/recipes', {
+			method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+			body: JSON.stringify(parsedData),
+		});
+
+		/** @type {import('@sveltejs/kit').ActionResult} */
+		const result = deserialize(await response.text());
+
+		if (result.type === 'success') {
+			// rerun all `load` functions, following the successful update
+			await invalidateAll();
+		}
+
+		applyAction(result);
+	}
 
     let delete_warning : HTMLDialogElement;
 

@@ -7,11 +7,14 @@ export const actions = {
 	default: async (event) => {
 		const submit = await event.request.formData();
         const data = await parseFormValues(submit);     
-        console.log(data);   
+        //console.log(data);   
+        console.log(event.locals.session);
+        console.log(event);
         const response = await fetch(API + '/recipes', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + event.locals.session.getToken(),
             },
             body: JSON.stringify(data), 
         });
