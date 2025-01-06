@@ -3,24 +3,50 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 
+	"github.com/joho/godotenv"
+
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+
+	"github.com/clerk/clerk-sdk-go/v2"
+	clerkhttp "github.com/clerk/clerk-sdk-go/v2/http"
+	"github.com/clerk/clerk-sdk-go/v2/user"
+
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 
 	"github.com/lawn-chair/mealplan/models"
 )
 
+func getEnv(key string, fallback string) string {
+	if value, found := os.LookupEnv(key); found {
+		return value
+	}
+	return fallback
+}
+
 func main() {
+	godotenv.Load(".env.local")
+	godotenv.Load()
+
+	fmt.Println("Starting mealplan server...")
 	db, err := sqlx.Connect("postgres", "user=admin password=admin dbname=mealplan port=32772 sslmode=disable")
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer db.Close()
+	fmt.Println("Connected to database")
+
+	clerk.SetKey(getEnv("CLERK_SECRET_KEY", "clerk_secret"))
 
 	app := fiber.New()
 	app.Use(cors.New())
+	app.Use(adaptor.HTTPMiddleware(clerkhttp.WithHeaderAuthorization()))
+
 	api := app.Group("/api")
 
 	api.Get("/meals", func(c *fiber.Ctx) error {
@@ -153,6 +179,20 @@ func main() {
 	})
 
 	api.Post("/recipes", func(c *fiber.Ctx) error {
+		fmt.Println(c.GetReqHeaders())
+		claims, ok := clerk.SessionClaimsFromContext(c.Context())
+		if !ok {
+			fmt.Println("Unauthorized")
+			c.SendStatus(403)
+			return c.JSON([]byte(`{"access": "unauthorized"}`))
+		}
+
+		usr, err := user.Get(c.Context(), claims.Subject)
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Printf(`{"user_id": "%s", "user_banned": "%t"}\n`, usr.ID, usr.Banned)
+
 		data := new(models.Recipe)
 		if err := c.BodyParser(data); err != nil {
 			c.SendStatus(400)
@@ -217,5 +257,6 @@ func main() {
 		return c.SendStatus(204)
 	})
 
-	log.Fatal(app.Listen(":8080"))
+	fmt.Println("Server starting on port 8080")
+	log.Fatal(app.Listen(":" + getEnv("PORT", "8080")))
 }
