@@ -5,10 +5,14 @@
     import type { RecipeData } from '$lib/types.js';
 	import Hero from '$lib/Hero.svelte';
 
-    export let data : RecipeData;
-    export let form;
+    interface Props {
+        data: RecipeData;
+        form: any;
+    }
 
-    let editing = false;
+    let { data, form }: Props = $props();
+
+    let editing = $state(false);
 </script>
 
 <Navbar />

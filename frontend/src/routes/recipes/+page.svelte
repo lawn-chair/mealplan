@@ -1,10 +1,16 @@
 <script>
-    /** @type {import('./$types').PageData} */
-    export let data;
+    
 	import RecipeCard from '$lib/RecipeCard.svelte';
     import RecipeForm from './[slug]/RecipeForm.svelte';
     import Navbar from '../Navbar.svelte'
-    let newRecipe = false;
+    /**
+     * @typedef {Object} Props
+     * @property {import('./$types').PageData} data
+     */
+
+    /** @type {Props} */
+    let { data } = $props();
+    let newRecipe = $state(false);
 
 </script>
 <Navbar />
@@ -21,7 +27,7 @@
         {/if}
     </div>
     <div class="container my-6">
-        <button class="btn btn-primary" on:click={() => {newRecipe = true;}} >New Recipe</button>
+        <button class="btn btn-primary" onclick={() => {newRecipe = true;}} >New Recipe</button>
     </div>
 {:else}
     <RecipeForm newRecipe={true} on:cancel={() => {newRecipe = false}}/>

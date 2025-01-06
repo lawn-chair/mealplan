@@ -6,12 +6,16 @@
     import type { RecipeData, MealData } from '$lib/types.js';
     import { API } from '$lib/api.js';
 
-    export let data : MealData;
-    export let form;
-    console.log(form);
-    let editing = false;
+    interface Props {
+        data: MealData;
+        form: any;
+    }
 
-    let recipes : RecipeData[] = [];
+    let { data, form }: Props = $props();
+    console.log(form);
+    let editing = $state(false);
+
+    let recipes : RecipeData[] = $state([]);
     function getRecipes() {
         fetch(API + `/recipes`)
             .then(response => response.json())
@@ -60,7 +64,7 @@
         <span class="prose"><h2>Recipes:</h2></span>
         {#await recipes}
             <p>Loading...</p>
-        {:then recipes }
+        {:then recipes}
             {#if !data.recipes || data.recipes.length == 0}
                 <p>No recipes</p>
             {:else}

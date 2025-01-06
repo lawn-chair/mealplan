@@ -1,6 +1,10 @@
 <script lang="ts">
     import type { MealData } from '$lib/types.js';
-    export let meal : MealData;
+    interface Props {
+        meal: MealData;
+    }
+
+    let { meal }: Props = $props();
 
 </script>
 

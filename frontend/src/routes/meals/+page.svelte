@@ -1,8 +1,14 @@
 <script>
-    /** @type {import('./$types').PageData} */
-    export let data;
+    
     import MealCard from './MealCard.svelte';
     import Navbar from '../Navbar.svelte'
+    /**
+     * @typedef {Object} Props
+     * @property {import('./$types').PageData} data
+     */
+
+    /** @type {Props} */
+    let { data } = $props();
 </script>
 <Navbar />
 
