@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -16,6 +18,9 @@ import (
 	clerkhttp "github.com/clerk/clerk-sdk-go/v2/http"
 	"github.com/clerk/clerk-sdk-go/v2/user"
 
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
+
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 
@@ -27,6 +32,20 @@ func getEnv(key string, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func requiresAuthentication(c *fiber.Ctx) (*clerk.User, error) {
+	claims, ok := clerk.SessionClaimsFromContext(c.Context())
+	if !ok {
+		return nil, errors.New("unauthorized")
+	}
+
+	usr, err := user.Get(c.Context(), claims.Subject)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+	fmt.Printf(`{"user_id": "%s", "user_banned": "%t"}\n`, usr.ID, usr.Banned)
+	return usr, nil
 }
 
 func main() {
@@ -73,6 +92,12 @@ func main() {
 	})
 
 	api.Post("/meals", func(c *fiber.Ctx) error {
+		_, err = requiresAuthentication(c)
+		if err != nil {
+			c.SendStatus(401)
+			return c.JSON(err)
+		}
+
 		data := new(models.Meal)
 		if err := c.BodyParser(data); err != nil {
 			c.SendStatus(400)
@@ -97,6 +122,12 @@ func main() {
 		id, err := strconv.Atoi(c.Params("id"))
 		if err != nil {
 			c.SendStatus(400)
+			return c.JSON(err)
+		}
+
+		_, err = requiresAuthentication(c)
+		if err != nil {
+			c.SendStatus(401)
 			return c.JSON(err)
 		}
 
@@ -125,6 +156,12 @@ func main() {
 		id, err := strconv.Atoi(c.Params("id"))
 		if err != nil {
 			c.SendStatus(400)
+			return c.JSON(err)
+		}
+
+		_, err = requiresAuthentication(c)
+		if err != nil {
+			c.SendStatus(401)
 			return c.JSON(err)
 		}
 
@@ -255,6 +292,56 @@ func main() {
 		}
 
 		return c.SendStatus(204)
+	})
+
+	api.Put("/images", func(c *fiber.Ctx) error {
+		ctx := context.Background()
+		_, err = requiresAuthentication(c)
+		if err != nil {
+			c.SendStatus(401)
+			return c.JSON(err)
+		}
+
+		fileHeader, err := c.FormFile("file")
+		if err != nil {
+			c.SendStatus(400)
+			return c.JSON(err)
+		}
+
+		file, err := fileHeader.Open()
+		if err != nil {
+			c.SendStatus(500)
+			return c.JSON(err)
+		}
+		defer file.Close()
+
+		minioClient, err := minio.New(getEnv("S3_ENDPOINT", "localhost:9000"), &minio.Options{
+			Creds:  credentials.NewStaticV4(getEnv("S3_ACCESS_KEY", "minioadmin"), getEnv("S3_SECRET_KEY", ""), ""),
+			Secure: false,
+		})
+		if err != nil {
+			c.SendStatus(500)
+			return c.JSON(err)
+		}
+
+		_, err = minioClient.PutObject(ctx,
+			getEnv("S3_BUCKET", "mp-images"),
+			fileHeader.Filename,
+			file,
+			fileHeader.Size,
+			minio.PutObjectOptions{ContentType: "application/octet-stream"})
+
+		if err != nil {
+			c.SendStatus(500)
+			return c.JSON(err)
+		}
+		fmt.Println("Uploaded file: ", fileHeader.Filename)
+		return c.JSON(fiber.Map{"path": fileHeader.Filename})
+	})
+
+	app.Use(func(c *fiber.Ctx) error {
+		fmt.Println("404 - ", c.OriginalURL())
+		return c.SendStatus(404) // => 404 "Not Found"
 	})
 
 	fmt.Println("Server starting on port 8080")
