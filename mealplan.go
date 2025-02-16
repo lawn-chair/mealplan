@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 
 	"github.com/clerk/clerk-sdk-go/v2"
 	clerkhttp "github.com/clerk/clerk-sdk-go/v2/http"
@@ -20,6 +21,8 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+
+	"github.com/google/uuid"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -65,6 +68,10 @@ func main() {
 	app := fiber.New()
 	app.Use(cors.New())
 	app.Use(adaptor.HTTPMiddleware(clerkhttp.WithHeaderAuthorization()))
+
+	app.Use(logger.New(logger.Config{
+		Format: "[${ip}]:${port} ${status} - ${method} ${path}\n",
+	}))
 
 	api := app.Group("/api")
 
@@ -216,19 +223,11 @@ func main() {
 	})
 
 	api.Post("/recipes", func(c *fiber.Ctx) error {
-		fmt.Println(c.GetReqHeaders())
-		claims, ok := clerk.SessionClaimsFromContext(c.Context())
-		if !ok {
-			fmt.Println("Unauthorized")
-			c.SendStatus(403)
-			return c.JSON([]byte(`{"access": "unauthorized"}`))
-		}
-
-		usr, err := user.Get(c.Context(), claims.Subject)
+		_, err = requiresAuthentication(c)
 		if err != nil {
-			fmt.Println(err)
+			c.SendStatus(401)
+			return c.JSON(err)
 		}
-		fmt.Printf(`{"user_id": "%s", "user_banned": "%t"}\n`, usr.ID, usr.Banned)
 
 		data := new(models.Recipe)
 		if err := c.BodyParser(data); err != nil {
@@ -254,6 +253,12 @@ func main() {
 		id, err := strconv.Atoi(c.Params("id"))
 		if err != nil {
 			c.SendStatus(400)
+			return c.JSON(err)
+		}
+
+		_, err = requiresAuthentication(c)
+		if err != nil {
+			c.SendStatus(401)
 			return c.JSON(err)
 		}
 
@@ -285,6 +290,12 @@ func main() {
 			return c.JSON(err)
 		}
 
+		_, err = requiresAuthentication(c)
+		if err != nil {
+			c.SendStatus(401)
+			return c.JSON(err)
+		}
+
 		err = models.DeleteRecipe(db, id)
 		if err != nil {
 			c.SendStatus(500)
@@ -294,8 +305,10 @@ func main() {
 		return c.SendStatus(204)
 	})
 
-	api.Put("/images", func(c *fiber.Ctx) error {
+	api.Post("/images", func(c *fiber.Ctx) error {
+		fmt.Println("Uploading image")
 		ctx := context.Background()
+
 		_, err = requiresAuthentication(c)
 		if err != nil {
 			c.SendStatus(401)
@@ -314,19 +327,23 @@ func main() {
 			return c.JSON(err)
 		}
 		defer file.Close()
+		storageEndpoint := getEnv("S3_ENDPOINT", "localhost:9000")
+		storageBucket := getEnv("S3_BUCKET", "mp-images")
 
-		minioClient, err := minio.New(getEnv("S3_ENDPOINT", "localhost:9000"), &minio.Options{
-			Creds:  credentials.NewStaticV4(getEnv("S3_ACCESS_KEY", "minioadmin"), getEnv("S3_SECRET_KEY", ""), ""),
+		minioClient, err := minio.New(storageEndpoint, &minio.Options{
+			Creds:  credentials.NewStaticV4(getEnv("S3_ACCESS_KEY", ""), getEnv("S3_SECRET_KEY", ""), ""),
 			Secure: false,
+			Region: "auto",
 		})
 		if err != nil {
 			c.SendStatus(500)
 			return c.JSON(err)
 		}
+		uuid := uuid.New()
 
 		_, err = minioClient.PutObject(ctx,
-			getEnv("S3_BUCKET", "mp-images"),
-			fileHeader.Filename,
+			storageBucket,
+			uuid.String()+fileHeader.Filename,
 			file,
 			fileHeader.Size,
 			minio.PutObjectOptions{ContentType: "application/octet-stream"})
@@ -335,12 +352,12 @@ func main() {
 			c.SendStatus(500)
 			return c.JSON(err)
 		}
-		fmt.Println("Uploaded file: ", fileHeader.Filename)
-		return c.JSON(fiber.Map{"path": fileHeader.Filename})
+		fmt.Println("Uploaded file: ", uuid.String()+fileHeader.Filename)
+		return c.JSON(fiber.Map{"url": "http://" + storageEndpoint + "/" + storageBucket + "/" + uuid.String() + fileHeader.Filename})
 	})
 
 	app.Use(func(c *fiber.Ctx) error {
-		fmt.Println("404 - ", c.OriginalURL())
+		fmt.Println("404 - ", c.Method(), c.OriginalURL())
 		return c.SendStatus(404) // => 404 "Not Found"
 	})
 

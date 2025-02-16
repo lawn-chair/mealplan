@@ -197,31 +197,13 @@ func CreateRecipe(db *sqlx.DB, r *Recipe) (*Recipe, error) {
 		return nil, err
 	}
 
-	for _, ingredient := range r.Ingredients {
-		_, err = tx.Exec("INSERT INTO recipe_ingredients (recipe_id, name, amount, calories) VALUES ($1, $2, $3, $4)", id, ingredient.Name, ingredient.Amount, ingredient.Calories)
-		if err != nil {
-			tx.Rollback()
-			fmt.Println(err)
-			return nil, err
-		}
-	}
-
-	for _, step := range r.Steps {
-		_, err = tx.Exec("INSERT INTO recipe_steps (recipe_id, \"order\", text) VALUES ($1, $2, $3)", id, step.Order, step.Text)
-		if err != nil {
-			tx.Rollback()
-			fmt.Println(err)
-			return nil, err
-		}
-	}
-
 	err = tx.Commit()
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
 
-	return GetRecipe(db, id)
+	return UpdateRecipe(db, id, r)
 }
 
 func DeleteRecipe(db *sqlx.DB, i int) error {
@@ -239,6 +221,13 @@ func DeleteRecipe(db *sqlx.DB, i int) error {
 	}
 
 	_, err = tx.Exec("DELETE FROM recipe_steps WHERE recipe_id=$1", i)
+	if err != nil {
+		tx.Rollback()
+		fmt.Println(err)
+		return err
+	}
+
+	_, err = tx.Exec("DELETE FROM meal_recipes WHERE recipe_id=$1", i)
 	if err != nil {
 		tx.Rollback()
 		fmt.Println(err)

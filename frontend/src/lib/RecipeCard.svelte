@@ -1,21 +1,20 @@
 <script lang="ts">
-    import { preventDefault } from 'svelte/legacy';
-
-     import { createEventDispatcher } from "svelte";
      import type { RecipeData } from '$lib/types.js';
 
     interface Props {
         recipe: RecipeData;
         selector?: boolean;
         compact?: boolean;
+        onselect?: (recipe: RecipeData) => void;
     }
 
-    let { recipe, selector = false, compact = false }: Props = $props();
-    console.log(recipe)
-    const dispatch = createEventDispatcher();
+    let { recipe, selector = false, compact = false, onselect = () => {return}}: Props = $props();
+
+    //console.log(recipe)
     
-    function selectRecipe() {
-        dispatch('select', recipe);
+    function selectRecipe(event: MouseEvent) {
+        event.preventDefault();
+        onselect(recipe);
     }
 </script>
 
@@ -29,7 +28,7 @@
         <h1 class="prose card-title"><a href="/recipes/{recipe.slug}">{recipe.name}</a></h1>
         <p>{recipe.description}</p>
         {#if selector}
-            <button class="btn btn-primary" onclick={preventDefault(selectRecipe)}>Select</button>
+            <button class="btn btn-primary" onclick={selectRecipe}>Select</button>
         {/if}
     </div>
 {:else}

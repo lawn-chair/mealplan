@@ -174,11 +174,14 @@ func UpdateMeal(db *sqlx.DB, i int, meal *Meal) (*Meal, error) {
 		tx.Rollback()
 		return nil, err
 	}
+	fmt.Println(meal.MealRecipes)
+	fmt.Println(i)
 	for _, recipe := range meal.MealRecipes {
 		_, err = tx.Exec("INSERT INTO meal_recipes (meal_id, recipe_id) VALUES ($1, $2)", i, recipe.RecipeID)
 		if err != nil {
 			tx.Rollback()
 			fmt.Println(err)
+			fmt.Println(recipe)
 			return nil, err
 		}
 	}
