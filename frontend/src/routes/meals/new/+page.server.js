@@ -1,7 +1,7 @@
 /** @type {import('./$types').Actions} */
 import { API } from '$lib/api.js';
 import { fail } from '@sveltejs/kit';
-import { parseMealFormValues } from '$lib/utils.js';
+import { parseMealFormValues } from '$lib/utils.ts';
 
 export const actions = {
 	default: async (event) => {

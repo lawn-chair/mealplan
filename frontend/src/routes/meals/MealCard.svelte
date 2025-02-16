@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { MealData } from '$lib/types.js';
+    
     interface Props {
         meal: MealData;
     }

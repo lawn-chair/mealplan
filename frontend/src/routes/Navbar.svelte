@@ -1,9 +1,5 @@
 <script lang="ts">
-    import UserButton from 'clerk-sveltekit/client/UserButton.svelte'
-    import SignedIn from 'clerk-sveltekit/client/SignedIn.svelte'
-    import SignedOut from 'clerk-sveltekit/client/SignedOut.svelte'
-	import SignInButton from 'clerk-sveltekit/client/SignInButton.svelte';
-	import SignUpButton from 'clerk-sveltekit/client/SignUpButton.svelte';
+    import { SignedIn, SignedOut, UserButton, SignInButton, SignUpButton } from 'svelte-clerk';
 </script>
 
 <div class="navbar bg-base-100">
@@ -20,7 +16,7 @@
             <UserButton afterSignOutUrl="/" />
         </SignedIn>
         <SignedOut>
-            <SignInButton mode="modal" /> <span>|</span> <SignUpButton mode="modal" />
+            <SignInButton withSignUp />
             <!-- You could also use <SignInButton mode="modal" /> and <SignUpButton mode="modal" /> here -->
         </SignedOut>
     </div>

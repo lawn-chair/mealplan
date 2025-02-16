@@ -1,5 +1,4 @@
 <script>
-    
     import MealCard from './MealCard.svelte';
     import Navbar from '../Navbar.svelte'
     /**
@@ -7,7 +6,7 @@
      * @property {import('./$types').PageData} data
      */
 
-    /** @type {Props} */
+    
     let { data } = $props();
 </script>
 <Navbar />

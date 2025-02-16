@@ -30,7 +30,7 @@
         <button class="btn btn-primary" onclick={() => {newRecipe = true;}} >New Recipe</button>
     </div>
 {:else}
-    <RecipeForm newRecipe={true} on:cancel={() => {newRecipe = false}}/>
+    <RecipeForm newRecipe={true} oncancel={() => {newRecipe = false}}/>
 {/if}
 </main>
 
