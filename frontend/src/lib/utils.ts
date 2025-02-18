@@ -1,5 +1,5 @@
 
-export const updatePosition = (arr, oPos, nPos, offset = 0) => {
+export const updatePosition = (arr: {id?: number, text: string, order: number}[], oPos: number, nPos: number, offset = 0) => {
     if (typeof nPos === "number" && typeof oPos === "number" && nPos !== oPos) {
       arr.splice(nPos + offset, 0, arr.splice(oPos + offset, 1)[0])
     }
