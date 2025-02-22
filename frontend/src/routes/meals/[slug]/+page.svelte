@@ -34,6 +34,11 @@
     getRecipes();
 </script>
 
+<svelte:head>
+    <title>Yum! - Meals - {data.name}</title>
+</svelte:head>
+
+
 {#if form?.message}
     <div class="toast toast-top toast-end">
         <span role="alert" class="alert alert-error">Update Failed: {JSON.parse(form?.message).message}</span>
