@@ -1,0 +1,30 @@
+# fly.toml app configuration file generated for yum-backend on 2025-02-18T15:44:01-08:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'yum-backend'
+primary_region = 'sjc'
+
+[build]
+  [build.args]
+    GO_VERSION = '1.22'
+
+[env]
+  PORT = '8080'
+
+[deploy]
+  release_command = "goose -dir /migrations postgres up"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1

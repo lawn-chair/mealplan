@@ -56,7 +56,8 @@ func main() {
 	godotenv.Load()
 
 	fmt.Println("Starting mealplan server...")
-	db, err := sqlx.Connect("postgres", "user=admin password=admin dbname=mealplan port=32772 sslmode=disable")
+	//db, err := sqlx.Connect("postgres", "user=admin password=admin dbname=mealplan port=32772 sslmode=disable")
+	db, err := sqlx.Connect("postgres", getEnv("DATABASE_URL", ""))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -99,8 +100,10 @@ func main() {
 	})
 
 	api.Post("/meals", func(c *fiber.Ctx) error {
+		//httputil.DumpRequest(c.Request(), true)
 		_, err = requiresAuthentication(c)
 		if err != nil {
+			fmt.Println("Unauthorized request")
 			c.SendStatus(401)
 			return c.JSON(err)
 		}
@@ -223,8 +226,10 @@ func main() {
 	})
 
 	api.Post("/recipes", func(c *fiber.Ctx) error {
+		fmt.Println("Creating recipe")
 		_, err = requiresAuthentication(c)
 		if err != nil {
+			fmt.Println("Unauthorized request")
 			c.SendStatus(401)
 			return c.JSON(err)
 		}
@@ -327,11 +332,11 @@ func main() {
 			return c.JSON(err)
 		}
 		defer file.Close()
-		storageEndpoint := getEnv("S3_ENDPOINT", "localhost:9000")
-		storageBucket := getEnv("S3_BUCKET", "mp-images")
+		storageEndpoint := getEnv("AWS_ENDPOINT_URL_S3", "localhost:9000")
+		storageBucket := getEnv("BUCKET_NAME", "mp-images")
 
 		minioClient, err := minio.New(storageEndpoint, &minio.Options{
-			Creds:  credentials.NewStaticV4(getEnv("S3_ACCESS_KEY", ""), getEnv("S3_SECRET_KEY", ""), ""),
+			Creds:  credentials.NewStaticV4(getEnv("AWS_ACCESS_KEY_ID", ""), getEnv("AWS_SECRET_ACCESS_KEY", ""), ""),
 			Secure: false,
 			Region: "auto",
 		})

@@ -100,15 +100,17 @@
 			body: JSON.stringify(data),
 		});
 
-		/** @type {import('@sveltejs/kit').ActionResult} */
-		const result = deserialize(await response.text());
+		if (response.ok) {
+            /** @type {import('@sveltejs/kit').ActionResult} */
+            const result = deserialize(await response.text());
 
-		if (result.type === 'success') {
-			// rerun all `load` functions, following the successful update
-			await invalidateAll();
-		}
+            if (result.type === 'success') {
+                // rerun all `load` functions, following the successful update
+                await invalidateAll();
+            }
 
-		applyAction(result);
+            applyAction(result);
+        }
 	}
 
     let delete_warning : HTMLDialogElement;
