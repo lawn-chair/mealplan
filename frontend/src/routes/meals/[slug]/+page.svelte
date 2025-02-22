@@ -1,5 +1,4 @@
 <script lang="ts">
-    import Navbar from '../../Navbar.svelte';
     import MealForm from '../MealForm.svelte';
     import RecipeCard from '$lib/RecipeCard.svelte'
     import Hero from '$lib/Hero.svelte';
@@ -34,8 +33,6 @@
     }
     getRecipes();
 </script>
-
-<Navbar />
 
 {#if form?.message}
     <div class="toast toast-top toast-end">

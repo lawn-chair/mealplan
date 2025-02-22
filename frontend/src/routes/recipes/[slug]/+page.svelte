@@ -1,6 +1,5 @@
 <script lang="ts">
     /** @type {import('./$types').PageData} */
-    import Navbar from '../../Navbar.svelte';
     import RecipeForm from './RecipeForm.svelte';
     import type { RecipeData } from '$lib/types.js';
 	import Hero from '$lib/Hero.svelte';
@@ -21,8 +20,6 @@
 
     let editing = $state(false);
 </script>
-
-<Navbar />
 
 {#if form?.message}
     <div class="toast toast-top toast-end">

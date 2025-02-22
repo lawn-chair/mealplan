@@ -1,6 +1,6 @@
 <script>
     import MealCard from './MealCard.svelte';
-    import Navbar from '../Navbar.svelte'
+
     /**
      * @typedef {Object} Props
      * @property {import('./$types').PageData} data
@@ -9,7 +9,6 @@
     
     let { data } = $props();
 </script>
-<Navbar />
 
 <main class="py-6 px-4 sm:p-6 md:py-10 md:px-8">
     <div class="container mx-auto flex flex-wrap items-center justify-around gap-4">

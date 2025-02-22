@@ -2,7 +2,7 @@
     
 	import RecipeCard from '$lib/RecipeCard.svelte';
     import RecipeForm from './[slug]/RecipeForm.svelte';
-    import Navbar from '../Navbar.svelte'
+
     /**
      * @typedef {Object} Props
      * @property {import('./$types').PageData} data
@@ -13,7 +13,6 @@
     let newRecipe = $state(false);
 
 </script>
-<Navbar />
 
 <main class="py-6 px-4 sm:p-6 md:py-10 md:px-8">
 {#if !newRecipe}
