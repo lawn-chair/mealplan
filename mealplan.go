@@ -70,8 +70,10 @@ func main() {
 	clerk.SetKey(getEnv("CLERK_SECRET_KEY", "clerk_secret"))
 
 	r := chi.NewRouter()
+	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+
 	// Basic CORS
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*"},
