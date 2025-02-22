@@ -45,7 +45,6 @@ func GetRecipes(db *sqlx.DB) (*[]Recipe, error) {
 		fmt.Println(err)
 		return nil, err
 	}
-	fmt.Println(recipes)
 
 	return &recipes, nil
 }
@@ -105,9 +104,6 @@ func UpdateRecipe(db *sqlx.DB, i int, r *Recipe) (*Recipe, error) {
 		fmt.Println(err)
 		return nil, err
 	}
-
-	fmt.Println("image:")
-	fmt.Println(r.Image)
 
 	_, err = tx.Exec("UPDATE recipes SET name=$1, description=$2, image=$3 WHERE id=$4", r.Name, r.Description, r.Image, i)
 

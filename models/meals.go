@@ -49,7 +49,6 @@ func GetMeals(db *sqlx.DB) (*[]Meal, error) {
 		fmt.Println(err)
 		return nil, err
 	}
-	fmt.Println(meals)
 
 	return &meals, nil
 }

@@ -84,199 +84,26 @@ func main() {
 	r.Use(clerkhttp.WithHeaderAuthorization())
 
 	r.Route("/api", func(api chi.Router) {
-		api.Get("/meals", GetMeals(db))
+		api.Use(DbCtx(db))
 
-		api.Post("/meals", func(w http.ResponseWriter, r *http.Request) {
-			_, err := requiresAuthentication(r)
-			if err != nil {
-				http.Error(w, "Unauthorized request", http.StatusUnauthorized)
-				return
-			}
-
-			data := new(models.Meal)
-			if err := json.NewDecoder(r.Body).Decode(data); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-
-			meal, err := models.CreateMeal(db, data)
-			if err != nil {
-				if err == models.ErrValidation {
-					http.Error(w, err.Error(), http.StatusBadRequest)
-				} else {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-				}
-				return
-			}
-			json.NewEncoder(w).Encode(meal)
+		api.Route("/meals", func(meals chi.Router) {
+			meals.Get("/", GetMeals)
+			meals.Post("/", CreateMeal)
+			meals.Route("/{id}", func(meal chi.Router) {
+				meal.Get("/", GetMeal)
+				meal.Put("/", UpdateMeal)
+				meal.Delete("/", DeleteMeal)
+			})
 		})
 
-		api.Put("/meals/{id}", func(w http.ResponseWriter, r *http.Request) {
-			id, err := strconv.Atoi(chi.URLParam(r, "id"))
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-
-			_, err = requiresAuthentication(r)
-			if err != nil {
-				http.Error(w, "Unauthorized request", http.StatusUnauthorized)
-				return
-			}
-
-			data := new(models.Meal)
-			if err := json.NewDecoder(r.Body).Decode(data); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-
-			meal, err := models.UpdateMeal(db, id, data)
-			if err != nil {
-				if err == models.ErrValidation {
-					http.Error(w, err.Error(), http.StatusBadRequest)
-				} else {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-				}
-				return
-			}
-			json.NewEncoder(w).Encode(meal)
-		})
-
-		api.Delete("/meals/{id}", func(w http.ResponseWriter, r *http.Request) {
-			id, err := strconv.Atoi(chi.URLParam(r, "id"))
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-
-			_, err = requiresAuthentication(r)
-			if err != nil {
-				http.Error(w, "Unauthorized request", http.StatusUnauthorized)
-				return
-			}
-
-			err = models.DeleteMeal(db, id)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			w.WriteHeader(http.StatusNoContent)
-		})
-
-		api.Get("/recipes", func(w http.ResponseWriter, r *http.Request) {
-			recipes, err := models.GetRecipes(db)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			if slug := r.URL.Query().Get("slug"); slug != "" {
-				id, err := models.GetRecipeIdFromSlug(db, slug)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusNotFound)
-					return
-				}
-				recipe, err := models.GetRecipe(db, id)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-				json.NewEncoder(w).Encode(recipe)
-			} else {
-				json.NewEncoder(w).Encode(recipes)
-			}
-		})
-
-		api.Get("/recipes/{id}", func(w http.ResponseWriter, r *http.Request) {
-			id, err := strconv.Atoi(chi.URLParam(r, "id"))
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			recipe, err := models.GetRecipe(db, id)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			json.NewEncoder(w).Encode(recipe)
-		})
-
-		api.Post("/recipes", func(w http.ResponseWriter, r *http.Request) {
-			_, err := requiresAuthentication(r)
-			if err != nil {
-				http.Error(w, "Unauthorized request", http.StatusUnauthorized)
-				return
-			}
-
-			data := new(models.Recipe)
-			if err := json.NewDecoder(r.Body).Decode(data); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-
-			recipe, err := models.CreateRecipe(db, data)
-			if err != nil {
-				if err == models.ErrValidation {
-					http.Error(w, err.Error(), http.StatusBadRequest)
-				} else {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-				}
-				return
-			}
-			json.NewEncoder(w).Encode(recipe)
-		})
-
-		api.Put("/recipes/{id}", func(w http.ResponseWriter, r *http.Request) {
-			id, err := strconv.Atoi(chi.URLParam(r, "id"))
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-
-			_, err = requiresAuthentication(r)
-			if err != nil {
-				http.Error(w, "Unauthorized request", http.StatusUnauthorized)
-				return
-			}
-
-			data := new(models.Recipe)
-			if err := json.NewDecoder(r.Body).Decode(data); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-
-			recipe, err := models.UpdateRecipe(db, id, data)
-			if err != nil {
-				if err == models.ErrValidation {
-					http.Error(w, err.Error(), http.StatusBadRequest)
-				} else {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-				}
-				return
-			}
-			json.NewEncoder(w).Encode(recipe)
-		})
-
-		api.Delete("/recipes/{id}", func(w http.ResponseWriter, r *http.Request) {
-			id, err := strconv.Atoi(chi.URLParam(r, "id"))
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-
-			_, err = requiresAuthentication(r)
-			if err != nil {
-				http.Error(w, "Unauthorized request", http.StatusUnauthorized)
-				return
-			}
-
-			err = models.DeleteRecipe(db, id)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			w.WriteHeader(http.StatusNoContent)
+		api.Route("/recipes", func(recipes chi.Router) {
+			recipes.Get("/", GetRecipes)
+			recipes.Post("/", CreateRecipe)
+			recipes.Route("/{id}", func(recipe chi.Router) {
+				recipe.Get("/", GetRecipe)
+				recipe.Put("/", UpdateRecipe)
+				recipe.Delete("/", DeleteRecipe)
+			})
 		})
 
 		api.Post("/images", func(w http.ResponseWriter, r *http.Request) {
@@ -333,27 +160,255 @@ func main() {
 	log.Fatal(http.ListenAndServe(":"+getEnv("PORT", "8080"), r))
 }
 
-func GetMeals(db *sqlx.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if slug := r.URL.Query().Get("slug"); slug != "" {
-			id, err := models.GetMealIdFromSlug(db, slug)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusNotFound)
-				return
-			}
-			meal, err := models.GetMeal(db, id)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			json.NewEncoder(w).Encode(meal)
-		} else {
-			meals, err := models.GetMeals(db)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			json.NewEncoder(w).Encode(meals)
-		}
+func DbCtx(db *sqlx.DB) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := context.WithValue(r.Context(), "db", db)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
 	}
+}
+
+func GetMeals(w http.ResponseWriter, r *http.Request) {
+	db := r.Context().Value("db").(*sqlx.DB)
+
+	if slug := r.URL.Query().Get("slug"); slug != "" {
+		id, err := models.GetMealIdFromSlug(db, slug)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		meal, err := models.GetMeal(db, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(meal)
+	} else {
+		meals, err := models.GetMeals(db)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(meals)
+	}
+}
+
+func GetMeal(w http.ResponseWriter, r *http.Request) {
+	db := r.Context().Value("db").(*sqlx.DB)
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	meal, err := models.GetMeal(db, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(meal)
+}
+
+func UpdateMeal(w http.ResponseWriter, r *http.Request) {
+	db := r.Context().Value("db").(*sqlx.DB)
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	_, err = requiresAuthentication(r)
+	if err != nil {
+		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		return
+	}
+
+	data := new(models.Meal)
+	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	meal, err := models.UpdateMeal(db, id, data)
+	if err != nil {
+		if err == models.ErrValidation {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+	json.NewEncoder(w).Encode(meal)
+}
+
+func CreateMeal(w http.ResponseWriter, r *http.Request) {
+	db := r.Context().Value("db").(*sqlx.DB)
+	_, err := requiresAuthentication(r)
+	if err != nil {
+		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		return
+	}
+
+	data := new(models.Meal)
+	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	meal, err := models.CreateMeal(db, data)
+	if err != nil {
+		if err == models.ErrValidation {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+	json.NewEncoder(w).Encode(meal)
+}
+
+func DeleteMeal(w http.ResponseWriter, r *http.Request) {
+	db := r.Context().Value("db").(*sqlx.DB)
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	_, err = requiresAuthentication(r)
+	if err != nil {
+		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		return
+	}
+
+	err = models.DeleteMeal(db, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func GetRecipes(w http.ResponseWriter, r *http.Request) {
+	db := r.Context().Value("db").(*sqlx.DB)
+
+	if slug := r.URL.Query().Get("slug"); slug != "" {
+		id, err := models.GetRecipeIdFromSlug(db, slug)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		recipe, err := models.GetRecipe(db, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(recipe)
+	} else {
+		recipes, err := models.GetRecipes(db)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(recipes)
+	}
+}
+
+func GetRecipe(w http.ResponseWriter, r *http.Request) {
+	db := r.Context().Value("db").(*sqlx.DB)
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	recipe, err := models.GetRecipe(db, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(recipe)
+}
+
+func UpdateRecipe(w http.ResponseWriter, r *http.Request) {
+	db := r.Context().Value("db").(*sqlx.DB)
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	_, err = requiresAuthentication(r)
+	if err != nil {
+		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		return
+	}
+
+	data := new(models.Recipe)
+	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	recipe, err := models.UpdateRecipe(db, id, data)
+	if err != nil {
+		if err == models.ErrValidation {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+	json.NewEncoder(w).Encode(recipe)
+}
+
+func CreateRecipe(w http.ResponseWriter, r *http.Request) {
+	db := r.Context().Value("db").(*sqlx.DB)
+	_, err := requiresAuthentication(r)
+	if err != nil {
+		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		return
+	}
+
+	data := new(models.Recipe)
+	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	recipe, err := models.CreateRecipe(db, data)
+	if err != nil {
+		if err == models.ErrValidation {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+	json.NewEncoder(w).Encode(recipe)
+}
+
+func DeleteRecipe(w http.ResponseWriter, r *http.Request) {
+	db := r.Context().Value("db").(*sqlx.DB)
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	_, err = requiresAuthentication(r)
+	if err != nil {
+		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		return
+	}
+
+	err = models.DeleteRecipe(db, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
