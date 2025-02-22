@@ -2,18 +2,19 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 
 	"github.com/joho/godotenv"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/adaptor"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 
 	"github.com/clerk/clerk-sdk-go/v2"
 	clerkhttp "github.com/clerk/clerk-sdk-go/v2/http"
@@ -28,6 +29,9 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/lawn-chair/mealplan/models"
+
+	// Import the root CAs of the system - needed to allow Clerk to work in Docker
+	_ "golang.org/x/crypto/x509roots/fallback" // CA bundle for FROM Scratch
 )
 
 func getEnv(key string, fallback string) string {
@@ -37,13 +41,13 @@ func getEnv(key string, fallback string) string {
 	return fallback
 }
 
-func requiresAuthentication(c *fiber.Ctx) (*clerk.User, error) {
-	claims, ok := clerk.SessionClaimsFromContext(c.Context())
+func requiresAuthentication(r *http.Request) (*clerk.User, error) {
+	claims, ok := clerk.SessionClaimsFromContext(r.Context())
 	if !ok {
 		return nil, errors.New("unauthorized")
 	}
 
-	usr, err := user.Get(c.Context(), claims.Subject)
+	usr, err := user.Get(r.Context(), claims.Subject)
 	if err != nil {
 		return nil, errors.New("user not found")
 	}
@@ -56,7 +60,6 @@ func main() {
 	godotenv.Load()
 
 	fmt.Println("Starting mealplan server...")
-	//db, err := sqlx.Connect("postgres", "user=admin password=admin dbname=mealplan port=32772 sslmode=disable")
 	db, err := sqlx.Connect("postgres", getEnv("DATABASE_URL", ""))
 	if err != nil {
 		log.Fatal(err)
@@ -66,306 +69,291 @@ func main() {
 
 	clerk.SetKey(getEnv("CLERK_SECRET_KEY", "clerk_secret"))
 
-	app := fiber.New()
-	app.Use(cors.New())
-	app.Use(adaptor.HTTPMiddleware(clerkhttp.WithHeaderAuthorization()))
-
-	app.Use(logger.New(logger.Config{
-		Format: "[${ip}]:${port} ${status} - ${method} ${path}\n",
+	r := chi.NewRouter()
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	// Basic CORS
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"https://*", "http://*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: false,
+		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
+	r.Use(clerkhttp.WithHeaderAuthorization())
 
-	api := app.Group("/api")
+	r.Route("/api", func(api chi.Router) {
+		api.Get("/meals", GetMeals(db))
 
-	api.Get("/meals", func(c *fiber.Ctx) error {
-		if c.Query("slug") != "" {
-			id, err := models.GetMealIdFromSlug(db, c.Query("slug"))
+		api.Post("/meals", func(w http.ResponseWriter, r *http.Request) {
+			_, err := requiresAuthentication(r)
 			if err != nil {
-				c.SendStatus(404)
-				return c.JSON(err)
+				http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+				return
 			}
-			meal, err := models.GetMeal(db, id)
+
+			data := new(models.Meal)
+			if err := json.NewDecoder(r.Body).Decode(data); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			meal, err := models.CreateMeal(db, data)
 			if err != nil {
-				c.SendStatus(500)
-				return c.JSON(err)
+				if err == models.ErrValidation {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+				} else {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+				}
+				return
 			}
-			return c.JSON(meal)
-		} else {
-			meals, err := models.GetMeals(db)
+			json.NewEncoder(w).Encode(meal)
+		})
+
+		api.Put("/meals/{id}", func(w http.ResponseWriter, r *http.Request) {
+			id, err := strconv.Atoi(chi.URLParam(r, "id"))
 			if err != nil {
-				c.SendStatus(500)
-				return c.JSON(err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
 			}
-			return c.JSON(meals)
-		}
-	})
 
-	api.Post("/meals", func(c *fiber.Ctx) error {
-		//httputil.DumpRequest(c.Request(), true)
-		_, err = requiresAuthentication(c)
-		if err != nil {
-			fmt.Println("Unauthorized request")
-			c.SendStatus(401)
-			return c.JSON(err)
-		}
+			_, err = requiresAuthentication(r)
+			if err != nil {
+				http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+				return
+			}
 
-		data := new(models.Meal)
-		if err := c.BodyParser(data); err != nil {
-			c.SendStatus(400)
-			fmt.Println(err)
-			return c.JSON(err)
-		}
+			data := new(models.Meal)
+			if err := json.NewDecoder(r.Body).Decode(data); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
 
-		recipe, err := models.CreateMeal(db, data)
-		if err != nil {
-			if err == models.ErrValidation {
-				c.Status(400)
-				return c.JSON(fiber.Map{"message": err.Error()})
+			meal, err := models.UpdateMeal(db, id, data)
+			if err != nil {
+				if err == models.ErrValidation {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+				} else {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+				}
+				return
+			}
+			json.NewEncoder(w).Encode(meal)
+		})
+
+		api.Delete("/meals/{id}", func(w http.ResponseWriter, r *http.Request) {
+			id, err := strconv.Atoi(chi.URLParam(r, "id"))
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			_, err = requiresAuthentication(r)
+			if err != nil {
+				http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+				return
+			}
+
+			err = models.DeleteMeal(db, id)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.WriteHeader(http.StatusNoContent)
+		})
+
+		api.Get("/recipes", func(w http.ResponseWriter, r *http.Request) {
+			recipes, err := models.GetRecipes(db)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			if slug := r.URL.Query().Get("slug"); slug != "" {
+				id, err := models.GetRecipeIdFromSlug(db, slug)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusNotFound)
+					return
+				}
+				recipe, err := models.GetRecipe(db, id)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				json.NewEncoder(w).Encode(recipe)
 			} else {
-				c.Status(500)
-				return c.JSON(err)
+				json.NewEncoder(w).Encode(recipes)
 			}
-		}
-		return c.JSON(recipe)
-	})
+		})
 
-	api.Put("/meals/:id", func(c *fiber.Ctx) error {
-		id, err := strconv.Atoi(c.Params("id"))
-		if err != nil {
-			c.SendStatus(400)
-			return c.JSON(err)
-		}
-
-		_, err = requiresAuthentication(c)
-		if err != nil {
-			c.SendStatus(401)
-			return c.JSON(err)
-		}
-
-		data := new(models.Meal)
-		if err := c.BodyParser(data); err != nil {
-			c.SendStatus(400)
-			fmt.Println(err)
-			return c.JSON(err)
-		}
-
-		meal, err := models.UpdateMeal(db, id, data)
-		if err != nil {
-			if err == models.ErrValidation {
-				c.Status(400)
-				return c.JSON(fiber.Map{"message": err.Error()})
-			} else {
-				c.Status(500)
-				return c.JSON(err)
-			}
-		}
-
-		return c.JSON(meal)
-	})
-
-	api.Delete("/meals/:id", func(c *fiber.Ctx) error {
-		id, err := strconv.Atoi(c.Params("id"))
-		if err != nil {
-			c.SendStatus(400)
-			return c.JSON(err)
-		}
-
-		_, err = requiresAuthentication(c)
-		if err != nil {
-			c.SendStatus(401)
-			return c.JSON(err)
-		}
-
-		err = models.DeleteMeal(db, id)
-		if err != nil {
-			c.SendStatus(500)
-			return c.JSON(err)
-		}
-
-		return c.SendStatus(204)
-	})
-
-	api.Get("/recipes", func(c *fiber.Ctx) error {
-		recipes, err := models.GetRecipes(db)
-		if err != nil {
-			c.SendStatus(500)
-			return c.JSON(err)
-		}
-		if c.Query("slug") != "" {
-			fmt.Println(c.Query("slug"))
-			id, err := models.GetRecipeIdFromSlug(db, c.Query("slug"))
+		api.Get("/recipes/{id}", func(w http.ResponseWriter, r *http.Request) {
+			id, err := strconv.Atoi(chi.URLParam(r, "id"))
 			if err != nil {
-				c.SendStatus(404)
-				return c.JSON(err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
 			}
 			recipe, err := models.GetRecipe(db, id)
 			if err != nil {
-				c.SendStatus(500)
-				return c.JSON(err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
-			fmt.Println(recipe)
-			return c.JSON(recipe)
-		}
-
-		return c.JSON(recipes)
-	})
-
-	api.Get("/recipes/:id", func(c *fiber.Ctx) error {
-		id, err := strconv.Atoi(c.Params("id"))
-		if err != nil {
-			c.SendStatus(400)
-			return c.JSON(err)
-		}
-		recipe, err := models.GetRecipe(db, id)
-		fmt.Println(recipe)
-		if err != nil {
-			c.SendStatus(500)
-			return c.JSON(err)
-		}
-
-		return c.JSON(recipe)
-	})
-
-	api.Post("/recipes", func(c *fiber.Ctx) error {
-		fmt.Println("Creating recipe")
-		_, err = requiresAuthentication(c)
-		if err != nil {
-			fmt.Println("Unauthorized request")
-			c.SendStatus(401)
-			return c.JSON(err)
-		}
-
-		data := new(models.Recipe)
-		if err := c.BodyParser(data); err != nil {
-			c.SendStatus(400)
-			fmt.Println(err)
-			return c.JSON(err)
-		}
-
-		recipe, err := models.CreateRecipe(db, data)
-		if err != nil {
-			if err == models.ErrValidation {
-				c.Status(400)
-				return c.JSON(fiber.Map{"message": err.Error()})
-			} else {
-				c.Status(500)
-				return c.JSON(err)
-			}
-		}
-		return c.JSON(recipe)
-	})
-
-	api.Put("/recipes/:id", func(c *fiber.Ctx) error {
-		id, err := strconv.Atoi(c.Params("id"))
-		if err != nil {
-			c.SendStatus(400)
-			return c.JSON(err)
-		}
-
-		_, err = requiresAuthentication(c)
-		if err != nil {
-			c.SendStatus(401)
-			return c.JSON(err)
-		}
-
-		data := new(models.Recipe)
-		if err := c.BodyParser(data); err != nil {
-			c.SendStatus(400)
-			fmt.Println(err)
-			return c.JSON(err)
-		}
-
-		recipe, err := models.UpdateRecipe(db, id, data)
-		if err != nil {
-			if err == models.ErrValidation {
-				c.Status(400)
-				return c.JSON(fiber.Map{"message": err.Error()})
-			} else {
-				c.Status(500)
-				return c.JSON(err)
-			}
-		}
-
-		return c.JSON(recipe)
-	})
-
-	api.Delete("/recipes/:id", func(c *fiber.Ctx) error {
-		id, err := strconv.Atoi(c.Params("id"))
-		if err != nil {
-			c.SendStatus(400)
-			return c.JSON(err)
-		}
-
-		_, err = requiresAuthentication(c)
-		if err != nil {
-			c.SendStatus(401)
-			return c.JSON(err)
-		}
-
-		err = models.DeleteRecipe(db, id)
-		if err != nil {
-			c.SendStatus(500)
-			return c.JSON(err)
-		}
-
-		return c.SendStatus(204)
-	})
-
-	api.Post("/images", func(c *fiber.Ctx) error {
-		fmt.Println("Uploading image")
-		ctx := context.Background()
-
-		_, err = requiresAuthentication(c)
-		if err != nil {
-			c.SendStatus(401)
-			return c.JSON(err)
-		}
-
-		fileHeader, err := c.FormFile("file")
-		if err != nil {
-			c.SendStatus(400)
-			return c.JSON(err)
-		}
-
-		file, err := fileHeader.Open()
-		if err != nil {
-			c.SendStatus(500)
-			return c.JSON(err)
-		}
-		defer file.Close()
-		storageEndpoint := getEnv("AWS_ENDPOINT_URL_S3", "localhost:9000")
-		storageBucket := getEnv("BUCKET_NAME", "mp-images")
-
-		minioClient, err := minio.New(storageEndpoint, &minio.Options{
-			Creds:  credentials.NewStaticV4(getEnv("AWS_ACCESS_KEY_ID", ""), getEnv("AWS_SECRET_ACCESS_KEY", ""), ""),
-			Secure: false,
-			Region: "auto",
+			json.NewEncoder(w).Encode(recipe)
 		})
-		if err != nil {
-			c.SendStatus(500)
-			return c.JSON(err)
-		}
-		uuid := uuid.New()
 
-		_, err = minioClient.PutObject(ctx,
-			storageBucket,
-			uuid.String()+fileHeader.Filename,
-			file,
-			fileHeader.Size,
-			minio.PutObjectOptions{ContentType: "application/octet-stream"})
+		api.Post("/recipes", func(w http.ResponseWriter, r *http.Request) {
+			_, err := requiresAuthentication(r)
+			if err != nil {
+				http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+				return
+			}
 
-		if err != nil {
-			c.SendStatus(500)
-			return c.JSON(err)
-		}
-		fmt.Println("Uploaded file: ", uuid.String()+fileHeader.Filename)
-		return c.JSON(fiber.Map{"url": "http://" + storageEndpoint + "/" + storageBucket + "/" + uuid.String() + fileHeader.Filename})
+			data := new(models.Recipe)
+			if err := json.NewDecoder(r.Body).Decode(data); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			recipe, err := models.CreateRecipe(db, data)
+			if err != nil {
+				if err == models.ErrValidation {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+				} else {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+				}
+				return
+			}
+			json.NewEncoder(w).Encode(recipe)
+		})
+
+		api.Put("/recipes/{id}", func(w http.ResponseWriter, r *http.Request) {
+			id, err := strconv.Atoi(chi.URLParam(r, "id"))
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			_, err = requiresAuthentication(r)
+			if err != nil {
+				http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+				return
+			}
+
+			data := new(models.Recipe)
+			if err := json.NewDecoder(r.Body).Decode(data); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			recipe, err := models.UpdateRecipe(db, id, data)
+			if err != nil {
+				if err == models.ErrValidation {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+				} else {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+				}
+				return
+			}
+			json.NewEncoder(w).Encode(recipe)
+		})
+
+		api.Delete("/recipes/{id}", func(w http.ResponseWriter, r *http.Request) {
+			id, err := strconv.Atoi(chi.URLParam(r, "id"))
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			_, err = requiresAuthentication(r)
+			if err != nil {
+				http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+				return
+			}
+
+			err = models.DeleteRecipe(db, id)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.WriteHeader(http.StatusNoContent)
+		})
+
+		api.Post("/images", func(w http.ResponseWriter, r *http.Request) {
+			ctx := context.Background()
+
+			_, err := requiresAuthentication(r)
+			if err != nil {
+				http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+				return
+			}
+
+			file, fileHeader, err := r.FormFile("file")
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			defer file.Close()
+
+			storageEndpoint := getEnv("AWS_ENDPOINT_URL_S3", "localhost:9000")
+			storageBucket := getEnv("BUCKET_NAME", "mp-images")
+
+			minioClient, err := minio.New(storageEndpoint, &minio.Options{
+				Creds:  credentials.NewStaticV4(getEnv("AWS_ACCESS_KEY_ID", ""), getEnv("AWS_SECRET_ACCESS_KEY", ""), ""),
+				Secure: false,
+				Region: "auto",
+			})
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			uuid := uuid.New()
+
+			_, err = minioClient.PutObject(ctx,
+				storageBucket,
+				uuid.String()+fileHeader.Filename,
+				file,
+				fileHeader.Size,
+				minio.PutObjectOptions{ContentType: "application/octet-stream"})
+
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			fmt.Println("Uploaded file: ", uuid.String()+fileHeader.Filename)
+			json.NewEncoder(w).Encode(map[string]string{"url": "http://" + storageEndpoint + "/" + storageBucket + "/" + uuid.String() + fileHeader.Filename})
+		})
 	})
 
-	app.Use(func(c *fiber.Ctx) error {
-		fmt.Println("404 - ", c.Method(), c.OriginalURL())
-		return c.SendStatus(404) // => 404 "Not Found"
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "404 - Not Found", http.StatusNotFound)
 	})
 
 	fmt.Println("Server starting on port 8080")
-	log.Fatal(app.Listen(":" + getEnv("PORT", "8080")))
+	log.Fatal(http.ListenAndServe(":"+getEnv("PORT", "8080"), r))
+}
+
+func GetMeals(db *sqlx.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if slug := r.URL.Query().Get("slug"); slug != "" {
+			id, err := models.GetMealIdFromSlug(db, slug)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusNotFound)
+				return
+			}
+			meal, err := models.GetMeal(db, id)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			json.NewEncoder(w).Encode(meal)
+		} else {
+			meals, err := models.GetMeals(db)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			json.NewEncoder(w).Encode(meals)
+		}
+	}
 }
