@@ -448,7 +448,7 @@ func UpdatePlan(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
 	id := r.Context().Value("id").(int)
 
-	_, err := requiresAuthentication(r)
+	user, err := requiresAuthentication(r)
 	if err != nil {
 		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
 		return
@@ -460,7 +460,13 @@ func UpdatePlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	plan, err := models.UpdatePlan(db, id, data)
+	plan, err := models.GetPlan(db, id)
+	if err != nil || (plan.UserID != user.ID) || (data.UserID != "" && data.UserID != user.ID) {
+		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+	}
+	data.UserID = user.ID
+
+	plan, err = models.UpdatePlan(db, id, data)
 	if err != nil {
 		if err == models.ErrValidation {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -474,7 +480,7 @@ func UpdatePlan(w http.ResponseWriter, r *http.Request) {
 
 func CreatePlan(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
-	_, err := requiresAuthentication(r)
+	user, err := requiresAuthentication(r)
 	if err != nil {
 		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
 		return
@@ -485,6 +491,7 @@ func CreatePlan(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	data.UserID = user.ID
 
 	plan, err := models.CreatePlan(db, data)
 	if err != nil {
@@ -502,10 +509,15 @@ func DeletePlan(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
 	id := r.Context().Value("id").(int)
 
-	_, err := requiresAuthentication(r)
+	user, err := requiresAuthentication(r)
 	if err != nil {
 		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
 		return
+	}
+
+	plan, err := models.GetPlan(db, id)
+	if err != nil || (plan.UserID != user.ID) {
+		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
 	}
 
 	err = models.DeletePlan(db, id)
