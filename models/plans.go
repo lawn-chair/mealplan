@@ -1,0 +1,163 @@
+package models
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
+)
+
+//var ErrValidation = errors.New("name, description, and slug are required")
+
+type Plan struct {
+	ID        int       `db:"id" json:"id"`
+	StartDate time.Time `db:"start_date" json:"start_date"`
+	EndDate   time.Time `db:"end_date" json:"end_date"`
+	UserID    string    `db:"user_id" json:"user_id"`
+	Meals     []int     `json:"meals"`
+}
+
+type PlanMeals struct {
+	ID     int `db:"id" json:"id"`
+	PlanID int `db:"plan_id" json:"plan_id"`
+	MealID int `db:"meal_id" json:"meal_id"`
+}
+
+type Ingredient struct {
+	Name   string `db:"name" json:"name"`
+	Amount string `db:"amount" json:"amount"`
+}
+
+func GetPlans(db *sqlx.DB) (*[]Plan, error) {
+	plans := []Plan{}
+	err := db.Select(&plans, "SELECT * FROM plans")
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	return &plans, nil
+}
+
+func GetPlan(db *sqlx.DB, id int) (*Plan, error) {
+	plan := Plan{}
+	err := db.Get(&plan, "SELECT * FROM plans WHERE id=$1", id)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	planMeals := []PlanMeals{}
+	err = db.Select(&planMeals, "SELECT * FROM plan_meals WHERE plan_id=$1", plan.ID)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	plan.Meals = make([]int, len(planMeals))
+	for i, pm := range planMeals {
+		plan.Meals[i] = pm.MealID
+	}
+
+	return &plan, nil
+}
+
+func CreatePlan(db *sqlx.DB, p *Plan) (*Plan, error) {
+
+	tx, err := db.Beginx()
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	_, err = tx.Exec("INSERT INTO plans (start_date, end_date, user_id) VALUES ($1, $2, $3)", p.StartDate, p.EndDate, p.UserID)
+	if err != nil {
+		tx.Rollback()
+		fmt.Println(err)
+		return nil, err
+	}
+
+	err = tx.Get(&p.ID, "SELECT id FROM plans WHERE start_date=$1 AND user_id=$3", p.StartDate, p.UserID)
+	if err != nil {
+		tx.Rollback()
+		fmt.Println(err)
+		return nil, err
+	}
+	tx.Commit()
+
+	return UpdatePlan(db, p.ID, p)
+}
+
+func UpdatePlan(db *sqlx.DB, id int, p *Plan) (*Plan, error) {
+	tx, err := db.Beginx()
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	_, err = tx.Exec("DELETE FROM plan_meals WHERE plan_id=$1", id)
+	if err != nil {
+		tx.Rollback()
+		fmt.Println(err)
+		return nil, err
+	}
+
+	for _, meal := range p.Meals {
+		_, err = tx.Exec("INSERT INTO plan_meals (plan_id, meal_id) VALUES ($1, $2)", id, meal)
+		if err != nil {
+			tx.Rollback()
+			fmt.Println(err)
+			return nil, err
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	return GetPlan(db, id)
+}
+
+func DeletePlan(db *sqlx.DB, id int) error {
+	tx, err := db.Beginx()
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	_, err = tx.Exec("DELETE FROM plan_meals WHERE plan_id=$1", id)
+	if err != nil {
+		tx.Rollback()
+		fmt.Println(err)
+		return err
+	}
+
+	_, err = tx.Exec("DELETE FROM plans WHERE id=$1", id)
+	if err != nil {
+		tx.Rollback()
+		fmt.Println(err)
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	return nil
+}
+
+func GetPlanIngredients(db *sqlx.DB, id int) (*[]Ingredient, error) {
+	ingredients := []Ingredient{}
+	err := db.Select(&ingredients, "SELECT i.name, i.amount FROM meal_ingredients i JOIN plan_meals pm ON pm.meal_id = i.meal_id WHERE pm.plan_id=%d", id)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	return &ingredients, nil
+}

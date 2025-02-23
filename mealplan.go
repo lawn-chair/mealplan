@@ -51,7 +51,7 @@ func requiresAuthentication(r *http.Request) (*clerk.User, error) {
 	if err != nil {
 		return nil, errors.New("user not found")
 	}
-	fmt.Printf(`{"user_id": "%s", "user_banned": "%t"}\n`, usr.ID, usr.Banned)
+	fmt.Printf(`{"user_id": "%s", "email": "%s", "user_banned": "%t"}\n`, usr.ID, usr.EmailAddresses[0].EmailAddress, usr.Banned)
 	return usr, nil
 }
 
@@ -92,6 +92,7 @@ func main() {
 			meals.Get("/", GetMeals)
 			meals.Post("/", CreateMeal)
 			meals.Route("/{id}", func(meal chi.Router) {
+				meal.Use(IdCtx)
 				meal.Get("/", GetMeal)
 				meal.Put("/", UpdateMeal)
 				meal.Delete("/", DeleteMeal)
@@ -102,9 +103,22 @@ func main() {
 			recipes.Get("/", GetRecipes)
 			recipes.Post("/", CreateRecipe)
 			recipes.Route("/{id}", func(recipe chi.Router) {
+				recipe.Use(IdCtx)
 				recipe.Get("/", GetRecipe)
 				recipe.Put("/", UpdateRecipe)
 				recipe.Delete("/", DeleteRecipe)
+			})
+		})
+
+		api.Route("/plans", func(plans chi.Router) {
+			plans.Get("/", GetPlans)
+			plans.Post("/", CreatePlan)
+			plans.Route("/{id}", func(plan chi.Router) {
+				plan.Use(IdCtx)
+				plan.Get("/", GetPlan)
+				plan.Put("/", UpdatePlan)
+				plan.Delete("/", DeletePlan)
+				plan.Get("/ingredients", GetPlanIngredients)
 			})
 		})
 
@@ -171,6 +185,18 @@ func DbCtx(db *sqlx.DB) func(http.Handler) http.Handler {
 	}
 }
 
+func IdCtx(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.Atoi(chi.URLParam(r, "id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		ctx := context.WithValue(r.Context(), "id", id)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
 func GetMeals(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
 
@@ -198,11 +224,7 @@ func GetMeals(w http.ResponseWriter, r *http.Request) {
 
 func GetMeal(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
-	id, err := strconv.Atoi(chi.URLParam(r, "id"))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	id := r.Context().Value("id").(int)
 
 	meal, err := models.GetMeal(db, id)
 	if err != nil {
@@ -214,13 +236,9 @@ func GetMeal(w http.ResponseWriter, r *http.Request) {
 
 func UpdateMeal(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
-	id, err := strconv.Atoi(chi.URLParam(r, "id"))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	id := r.Context().Value("id").(int)
 
-	_, err = requiresAuthentication(r)
+	_, err := requiresAuthentication(r)
 	if err != nil {
 		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
 		return
@@ -272,13 +290,9 @@ func CreateMeal(w http.ResponseWriter, r *http.Request) {
 
 func DeleteMeal(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
-	id, err := strconv.Atoi(chi.URLParam(r, "id"))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	id := r.Context().Value("id").(int)
 
-	_, err = requiresAuthentication(r)
+	_, err := requiresAuthentication(r)
 	if err != nil {
 		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
 		return
@@ -320,11 +334,7 @@ func GetRecipes(w http.ResponseWriter, r *http.Request) {
 
 func GetRecipe(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
-	id, err := strconv.Atoi(chi.URLParam(r, "id"))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	id := r.Context().Value("id").(int)
 
 	recipe, err := models.GetRecipe(db, id)
 	if err != nil {
@@ -336,13 +346,9 @@ func GetRecipe(w http.ResponseWriter, r *http.Request) {
 
 func UpdateRecipe(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
-	id, err := strconv.Atoi(chi.URLParam(r, "id"))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	id := r.Context().Value("id").(int)
 
-	_, err = requiresAuthentication(r)
+	_, err := requiresAuthentication(r)
 	if err != nil {
 		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
 		return
@@ -413,4 +419,112 @@ func DeleteRecipe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func GetPlans(w http.ResponseWriter, r *http.Request) {
+	db := r.Context().Value("db").(*sqlx.DB)
+
+	plans, err := models.GetPlans(db)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(plans)
+}
+
+func GetPlan(w http.ResponseWriter, r *http.Request) {
+	db := r.Context().Value("db").(*sqlx.DB)
+	id := r.Context().Value("id").(int)
+
+	plan, err := models.GetPlan(db, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(plan)
+}
+
+func UpdatePlan(w http.ResponseWriter, r *http.Request) {
+	db := r.Context().Value("db").(*sqlx.DB)
+	id := r.Context().Value("id").(int)
+
+	_, err := requiresAuthentication(r)
+	if err != nil {
+		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		return
+	}
+
+	data := new(models.Plan)
+	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	plan, err := models.UpdatePlan(db, id, data)
+	if err != nil {
+		if err == models.ErrValidation {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+	json.NewEncoder(w).Encode(plan)
+}
+
+func CreatePlan(w http.ResponseWriter, r *http.Request) {
+	db := r.Context().Value("db").(*sqlx.DB)
+	_, err := requiresAuthentication(r)
+	if err != nil {
+		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		return
+	}
+
+	data := new(models.Plan)
+	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	plan, err := models.CreatePlan(db, data)
+	if err != nil {
+		if err == models.ErrValidation {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+	json.NewEncoder(w).Encode(plan)
+}
+
+func DeletePlan(w http.ResponseWriter, r *http.Request) {
+	db := r.Context().Value("db").(*sqlx.DB)
+	id := r.Context().Value("id").(int)
+
+	_, err := requiresAuthentication(r)
+	if err != nil {
+		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		return
+	}
+
+	err = models.DeletePlan(db, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func GetPlanIngredients(w http.ResponseWriter, r *http.Request) {
+	db := r.Context().Value("db").(*sqlx.DB)
+	id := r.Context().Value("id").(int)
+
+	ingredients, err := models.GetPlanIngredients(db, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(ingredients)
 }
