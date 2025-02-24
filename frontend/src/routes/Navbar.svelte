@@ -8,6 +8,7 @@
             <img width="225px" src="/yum-scheduler-website-header.svg" alt="logo" />
         </div>
     </div>
+    <a class="btn btn-ghost text-xl" href="/plans/">Plans</a>
     <a class="btn btn-ghost text-xl" href="/meals/">Meals</a>
     <a class="btn btn-ghost text-xl" href="/recipes/">Recipes</a>
 
@@ -16,7 +17,7 @@
             <UserButton afterSignOutUrl="/" />
         </SignedIn>
         <SignedOut>
-            <SignInButton withSignUp />
+            <SignInButton withSignUp mode="modal"/>
             <!-- You could also use <SignInButton mode="modal" /> and <SignUpButton mode="modal" /> here -->
         </SignedOut>
     </div>

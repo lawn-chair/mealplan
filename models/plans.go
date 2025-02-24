@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql/driver"
 	"fmt"
 	"time"
 
@@ -8,14 +9,39 @@ import (
 	_ "github.com/lib/pq"
 )
 
-//var ErrValidation = errors.New("name, description, and slug are required")
+// var ErrValidation = errors.New("name, description, and slug are required")
+type Date struct {
+	time.Time
+}
+
+func (t *Date) UnmarshalJSON(b []byte) (err error) {
+	date, err := time.Parse(`"2006-01-02"`, string(b))
+	if err != nil {
+		return err
+	}
+	t.Time = date
+	return
+}
+
+func (t Date) MarshalJSON() ([]byte, error) {
+	return []byte(t.Time.Format(`"2006-01-02"`)), nil
+}
+
+func (t *Date) Scan(value interface{}) error {
+	t.Time = value.(time.Time)
+	return nil
+}
+
+func (t Date) Value() (driver.Value, error) {
+	return t.Time, nil
+}
 
 type Plan struct {
-	ID        int       `db:"id" json:"id"`
-	StartDate time.Time `db:"start_date" json:"start_date"`
-	EndDate   time.Time `db:"end_date" json:"end_date"`
-	UserID    string    `db:"user_id" json:"user_id"`
-	Meals     []int     `json:"meals"`
+	ID        int    `db:"id" json:"id"`
+	StartDate Date   `db:"start_date" json:"start_date"`
+	EndDate   Date   `db:"end_date" json:"end_date"`
+	UserID    string `db:"user_id" json:"user_id"`
+	Meals     []int  `json:"meals,omitempty"`
 }
 
 type PlanMeals struct {
@@ -78,7 +104,7 @@ func CreatePlan(db *sqlx.DB, p *Plan) (*Plan, error) {
 		return nil, err
 	}
 
-	err = tx.Get(&p.ID, "SELECT id FROM plans WHERE start_date=$1 AND user_id=$3", p.StartDate, p.UserID)
+	err = tx.Get(&p.ID, "SELECT id FROM plans WHERE start_date=$1 AND user_id=$2", p.StartDate, p.UserID)
 	if err != nil {
 		tx.Rollback()
 		fmt.Println(err)

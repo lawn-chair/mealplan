@@ -19,3 +19,11 @@ export interface RecipeData {
     ingredients: {amount: string, name: string, calories?: number}[]; 
     steps: {text: string, order: number}[]; 
 }
+
+export interface PlanData {
+    id?: number;
+    start_date: string;
+    end_date: string;
+    user_id: string;
+    meals?: {meal_id: number}[];
+}
