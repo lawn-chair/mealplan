@@ -218,6 +218,12 @@ func DeleteMeal(db *sqlx.DB, i int) error {
 		return err
 	}
 
+	_, err = tx.Exec("DELETE FROM plan_meals WHERE meal_id=$1", i)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
 	_, err = tx.Exec("DELETE FROM meals WHERE id=$1", i)
 	if err != nil {
 		tx.Rollback()
