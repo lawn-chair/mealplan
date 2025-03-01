@@ -18,6 +18,8 @@
 	"devDependencies": {
 		"@flydotio/dockerfile": "^0.7.8",
 		"@playwright/test": "^1.28.1",
+		"@skeletonlabs/skeleton": "^3.0.0-next.12",
+		"@skeletonlabs/skeleton-svelte": "^1.0.0-next.21",
 		"@sveltejs/adapter-auto": "^3.0.0",
 		"@sveltejs/adapter-node": "^5.2.12",
 		"@sveltejs/kit": "^2.5.27",
@@ -26,18 +28,16 @@
 		"@types/node": "^20.14.11",
 		"@types/sortablejs": "^1.15.8",
 		"autoprefixer": "^10.4.19",
-		"daisyui": "^4.12.10",
 		"eslint": "^9.0.0",
 		"eslint-config-prettier": "^9.1.0",
 		"eslint-plugin-svelte": "^2.45.1",
 		"globals": "^15.0.0",
-		"postcss": "^8.4.38",
 		"prettier": "^3.3.2",
 		"prettier-plugin-svelte": "^3.2.6",
 		"prettier-plugin-tailwindcss": "^0.6.5",
 		"svelte": "^5.0.0",
 		"svelte-check": "^4.0.0",
-		"tailwindcss": "^3.4.4",
+		"tailwindcss": "^4.0.0",
 		"tslib": "^2.4.1",
 		"typescript": "^5.5.0",
 		"typescript-eslint": "^8.0.0-alpha.20",
@@ -46,7 +46,9 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@tailwindcss/postcss": "^4.0.9",
 		"@tailwindcss/typography": "^0.5.13",
+		"@tailwindcss/vite": "^4.0.9",
 		"dotenv": "^16.4.7",
 		"svelte-clerk": "^0.8.0"
 	}
