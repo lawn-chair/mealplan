@@ -1,16 +1,17 @@
 <script lang="ts">
-    import { SignedIn, SignedOut, UserButton, SignInButton, SignUpButton } from 'svelte-clerk';
+    import { SignedIn, SignedOut, UserButton, SignInButton } from 'svelte-clerk';
 </script>
-
-<div class="navbar bg-base-100">
-    <div class="left-0">
-        <div>
-            <img width="225px" src="/yum-scheduler-website-header.svg" alt="logo" />
-        </div>
+<header class="preset-filled-tonal-50">
+<nav class="container flex flex-row items-center">
+    <div>
+        <img width="225px" src="/yum-scheduler-website-header.svg" alt="logo" />
     </div>
-    <a class="btn btn-ghost text-xl" href="/plans/">Plans</a>
-    <a class="btn btn-ghost text-xl" href="/meals/">Meals</a>
-    <a class="btn btn-ghost text-xl" href="/recipes/">Recipes</a>
+    <div>
+        <a class="btn btn-ghost text-xl" href="/">Home</a>
+    </div>
+    <a class="btn btn-ghost text-xl float-left" href="/plans/">Plans</a>
+    <a class="btn btn-ghost text-xl float-left" href="/meals/">Meals</a>
+    <a class="btn btn-ghost text-xl float-left" href="/recipes/">Recipes</a>
 
     <div class="absolute right-0 pr-2">
         <SignedIn>
@@ -21,4 +22,5 @@
             <!-- You could also use <SignInButton mode="modal" /> and <SignUpButton mode="modal" /> here -->
         </SignedOut>
     </div>
-</div>
+</nav>
+</header>

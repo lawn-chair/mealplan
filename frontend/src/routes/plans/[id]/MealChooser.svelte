@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { MealData } from "$lib/types";
-	import MealCard from "../../meals/MealCard.svelte";
+    import Card from "$lib/Card.svelte";
 
     interface Props {
         dialog:HTMLDialogElement;
@@ -21,7 +21,7 @@
 
         <div class="modal-body">
             {#each meals as meal}
-                <MealCard {meal} selector={true} onselect={onselect} />
+                <Card obj={meal} onselect={onselect} />
             {/each}
         </div>
     </div>

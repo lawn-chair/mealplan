@@ -6,7 +6,7 @@
     import { API } from '$lib/api';
 	import MealChooser from './MealChooser.svelte';
     import DeleteConfirm from '$lib/DeleteConfirm.svelte';
-	import MealCard from '../../meals/MealCard.svelte';
+    import Card from '$lib/Card.svelte';
 	import { applyAction, deserialize } from '$app/forms';
 
     interface Props {
@@ -14,13 +14,12 @@
             planData: PlanData,
             meals: MealData[]
         };
-        form: any;
     }
 
     const ctx = useClerkContext();
     const userId = ctx.auth.userId || '';
 
-    let { data, form }: Props = $props();
+    let { data }: Props = $props();
     let planData = $derived.by(() => {
         let planData = $state(data.planData);
         return planData;
@@ -66,7 +65,7 @@
 
     }
 
-    $inspect(planData);
+    let obj :MealData = $state({id: 0, name: '', description: '', ingredients: [], steps: [], user_id: "", slug: ""});
 
     let dialog :HTMLDialogElement
     let deleteDialog :HTMLDialogElement
@@ -75,16 +74,6 @@
 <svelte:head>
     <title>Yum! - Plans - {planData.start_date} - {planData.end_date}</title>
 </svelte:head>
-
-{#if form?.message}
-    <div class="toast toast-top toast-end">
-        <span role="alert" class="alert alert-error">Update Failed: {JSON.parse(form?.message).message}</span>
-    </div>
-{:else if form?.success}
-    <div class="toast toast-top toast-end">
-        <span role="alert" class="alert alert-success">Plan Updated</span>
-    </div>
-{/if}
 
 <div class="container mx-auto">
 {#await planData}
@@ -100,7 +89,7 @@
         {:else}
             {#each planData.meals as meal}
                 {#if data.meals.find(m => m.id === meal)}
-                    <MealCard compact={true} meal={data.meals.find(m => m.id === meal )}/>
+                    <Card obj={data.meals.find(m => m.id === meal)} />
                 {/if}
             {/each}
         {/if}

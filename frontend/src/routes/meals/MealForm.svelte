@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from "svelte";
     
-    import RecipeCard from "$lib/RecipeCard.svelte";
+    import Card from "$lib/Card.svelte";
     import Ingredient from "$lib/Ingredient.svelte";
     import { API } from '$lib/api.js';
     import { invalidateAll, goto } from '$app/navigation';
@@ -219,8 +219,8 @@ async function handleSubmit(event : SubmitEvent) {
                 <div class="flex flex-wrap gap-4">
                 {#each data.recipes as recipe}
                     {#if recipes.find((x) => x.id === recipe.recipe_id)}
-                        <RecipeCard 
-                        recipe={recipes.find((x) => x.id === recipe.recipe_id) || { id: 0, name: '', description: '', slug: '', ingredients: [], steps: [] }} 
+                        <Card 
+                        obj={recipes.find((x) => x.id === recipe.recipe_id) || { id: 0, name: '', description: '', slug: '', ingredients: [], steps: [] }} 
                         compact={true}/>
                     {/if}
                     <input type="hidden" name="recipe.{recipe.recipe_id}" value={recipe.recipe_id} />
@@ -258,7 +258,7 @@ async function handleSubmit(event : SubmitEvent) {
     {:then recipes }
         <div class="flex flex-wrap gap-4">
         {#each recipes as recipe}
-            <RecipeCard {recipe} selector={true} onselect={handleAddRecipe}/>
+            <Card obj={recipe} onselect={handleAddRecipe}/>
         {/each}
         </div>
         <button class="btn my-4" type="button" onclick={function (event) {event.preventDefault(); recipe_dialog.close()}}>Close</button>

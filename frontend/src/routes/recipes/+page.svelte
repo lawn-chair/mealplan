@@ -1,6 +1,5 @@
 <script>
-    
-	import RecipeCard from '$lib/RecipeCard.svelte';
+    import Card from '$lib/Card.svelte';
     import RecipeForm from './[slug]/RecipeForm.svelte';
 
     /**
@@ -22,14 +21,14 @@
     <div class="container mx-auto flex flex-wrap items-center justify-around gap-4">
         {#if data}
             {#each data.recipeData as recipe}
-                <RecipeCard {recipe} />
+                <Card obj={recipe} url="/recipes/{recipe.slug}"/>
             {/each}
         {:else}
             <p>Loading...</p>
         {/if}
     </div>
     <div class="container my-6">
-        <button class="btn btn-primary" onclick={() => {newRecipe = true;}} >New Recipe</button>
+        <button class="btn btn-base preset-filled-primary-500" onclick={() => {newRecipe = true;}} >New Recipe</button>
     </div>
 {:else}
     <RecipeForm newRecipe={true} oncancel={() => {newRecipe = false}}/>

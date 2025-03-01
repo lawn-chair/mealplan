@@ -1,13 +1,19 @@
-<script>
-    import MealCard from './MealCard.svelte';
+<script lang="ts">
+    import Card from '$lib/Card.svelte';
+	import type { MealData } from '$lib/types';
 
     /**
      * @typedef {Object} Props
      * @property {import('./$types').PageData} data
      */
 
+    interface Props {
+        data: {
+            mealData: MealData[]
+        }
+    }
     
-    let { data } = $props();
+    let {data} : Props = $props();
 </script>
 
 <svelte:head>
@@ -18,14 +24,14 @@
     <div class="container mx-auto flex flex-wrap items-center justify-around gap-4">
         {#if data}
             {#each data.mealData as meal}
-                <MealCard {meal} />
+                <Card obj={meal}  url="/meals/{meal.slug}" />
             {/each}
         {:else}
             <p>Loading...</p>
         {/if}
     </div>
     <div class="container my-6">
-        <a class="btn btn-primary" href="/meals/new">New Meal</a>
+        <a class="btn btn-base preset-filled-primary-500" href="/meals/new">New Meal</a>
     </div>
 </main>
 
