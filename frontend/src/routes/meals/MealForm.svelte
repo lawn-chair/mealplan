@@ -3,6 +3,8 @@
     
     import Card from "$lib/Card.svelte";
     import Ingredient from "$lib/Ingredient.svelte";
+    import DeleteConfirm from "$lib/DeleteConfirm.svelte";
+
     import { API } from '$lib/api.js';
     import { invalidateAll, goto } from '$app/navigation';
 	import { applyAction, deserialize } from '$app/forms';
@@ -97,7 +99,21 @@ async function uploadFile() {
     
 }
 
-/** @param {SubmitEvent & { currentTarget: EventTarget & HTMLFormElement}} event */
+async function handleDelete() {
+    if (!ctx.session) {
+        console.error('Session is not available');
+        return;
+    }
+    const token = await ctx.session.getToken();
+    const response = await fetch(API + `/meals/${data.id}`, {
+        method: 'DELETE',
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    });
+    goto('/meals');
+}
+
 async function handleSubmit(event : SubmitEvent) {
         event.preventDefault();
         //console.log(event);
@@ -107,20 +123,6 @@ async function handleSubmit(event : SubmitEvent) {
         }
         const token = await ctx.session.getToken();
         console.log("Sending to: ", API + (newMeal ? '/meals' : `/meals/${data.id}`));
-        
-        const deleteMeal = event.submitter && 
-            (event.submitter as HTMLButtonElement).formAction && 
-            (event.submitter as HTMLButtonElement).formAction.includes("?/delete");
-
-		if (deleteMeal) {
-            const response = await fetch(API + `/meals/${data.id}`, {
-                method: 'DELETE',
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            });
-            goto('/meals');
-        }
         
         const response = await fetch(API + (newMeal ? '/meals' : `/meals/${data.id}`), {
 			method: newMeal ? 'POST' : 'PUT',
@@ -237,16 +239,14 @@ async function handleSubmit(event : SubmitEvent) {
         <button class="btn btn-secondary" type="button" onclick={oncancel}>Cancel</button>
         {#if !newMeal}
         <button class="btn btn-error" type="button" onclick={() => delete_warning.showModal()}>Delete</button>
-        <dialog bind:this={delete_warning} class="modal modal-bottom sm:modal-middle">
-            <div class="modal-box p-4">
-                <h2>Are you sure you want to delete this meal?</h2>
-                <button class="btn btn-error" type="submit" formaction="?/delete">Delete</button>
-                <button class="btn btn-secondary" type="button" onclick={function (event) {event.preventDefault(); delete_warning.close()}}>Cancel</button>
-            </div>  
-        </dialog>
         {/if}
     </div>
 </form>
+
+<DeleteConfirm bind:dialog={delete_warning} onselect={handleDelete}>
+    <h2>Are you sure you want to delete this meal?</h2>
+</DeleteConfirm>
+
 <dialog bind:this={recipe_dialog} class="modal modal-bottom sm:modal-middle">
     <div class="modal-box">
         <h2 class="modal-title">Add Recipe</h2>

@@ -65,8 +65,6 @@
 
     }
 
-    let obj :MealData = $state({id: 0, name: '', description: '', ingredients: [], steps: [], user_id: "", slug: ""});
-
     let dialog :HTMLDialogElement
     let deleteDialog :HTMLDialogElement
 </script>

@@ -5,7 +5,7 @@
     interface Props {
         dialog:HTMLDialogElement;
         meals: MealData[];
-        onselect: (meal: MealData) => void;
+        onselect: (id: MealData) => void;
     };
     
     let { dialog = $bindable(), meals, onselect }: Props = $props();

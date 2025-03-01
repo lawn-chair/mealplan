@@ -116,11 +116,11 @@
     let delete_warning : HTMLDialogElement;
 </script>
 <form method="POST" enctype="multipart/form-data" action={newRecipe ? "/recipes" : "?/update"} onsubmit={handleSubmit}>
-    <fieldset>
+    <div>
     <input type="hidden" id="slug" name="slug" value={data.slug} />
     <input type="hidden" id="id" name="id" value={data.id} />
 
-    <label class="form-control" for="name">
+    <label class="" for="name">
         <div class="label"><span class="label-text">Name:</span></div>
         <input class="input input-bordered" type="text" id="name" name="name" bind:value={data.name}>
     </label>
@@ -146,7 +146,7 @@
         
     </label>
 
-    </fieldset>
+</div>
     <label class="form-control" for="ingredients">
         <span class="label label-text">Ingredients:</span>
 
