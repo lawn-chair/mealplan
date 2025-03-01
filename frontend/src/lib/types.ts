@@ -25,5 +25,5 @@ export interface PlanData {
     start_date: string;
     end_date: string;
     user_id: string;
-    meals?: {meal_id: number}[];
+    meals?: number[];
 }
