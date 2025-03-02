@@ -235,10 +235,10 @@ async function handleSubmit(event : SubmitEvent) {
     </fieldset>
     
     <div class="container my-4">
-        <button class="btn btn-primary" type="submit">Save</button>
-        <button class="btn btn-secondary" type="button" onclick={oncancel}>Cancel</button>
+        <button class="btn preset-filled-primary-500" type="submit">Save</button>
+        <button class="btn preset-filled-secondary-500" type="button" onclick={oncancel}>Cancel</button>
         {#if !newMeal}
-        <button class="btn btn-error" type="button" onclick={() => delete_warning.showModal()}>Delete</button>
+        <button class="btn preset-filled-error-500" type="button" onclick={() => delete_warning.showModal()}>Delete</button>
         {/if}
     </div>
 </form>

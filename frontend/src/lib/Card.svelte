@@ -5,14 +5,16 @@
         obj?: MealData | RecipeData;
         url?: string;
         compact?: boolean;
-        onselect?: (id: MealData|RecipeData|undefined) => void;
+        onselect?: (id: MealData|RecipeData) => void;
     }
 
     let { obj, url, compact = false, onselect }: Props = $props();
     
     function selectMeal(event: MouseEvent) {
         event.preventDefault();
-        onselect?.(obj);
+        if(obj) {
+            onselect?.(obj);
+        }
     }
 
     $inspect(obj);

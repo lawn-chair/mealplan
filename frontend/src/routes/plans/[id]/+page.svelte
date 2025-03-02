@@ -77,10 +77,10 @@
 {#await planData}
     <p>Loading...</p>
 {:then planData}
-    <h1>{formatDate(planData.start_date)} - {formatDate(planData.end_date)}</h1>
-    <button class="btn btn-primary" onclick={() => {deleteDialog.showModal()}}>Delete Plan</button>
-    <button class="btn btn-primary" onclick={() => {editing = !editing}}>Edit Plan</button>
-    <h2>Meals:</h2>
+    <h1 class="h3 py-4">{formatDate(planData.start_date)} - {formatDate(planData.end_date)}</h1>
+    <button class="btn preset-filled-error-500" onclick={() => {deleteDialog.showModal()}}>Delete Plan</button>
+    <button class="btn preset-filled-primary-500" onclick={() => {editing = !editing}}>Edit Plan</button>
+    <h2 class="h3 py-4">Meals:</h2>
     <div class="flex flex-wrap gap-4">
         {#if !planData.meals}
             <li>No meals</li>
@@ -93,8 +93,8 @@
         {/if}
     </div>
     {#if editing}
-    <button class="btn btn-primary" onclick={() => dialog.showModal()}>Add Meal</button>
-    <button class="btn btn-primary" onclick={() => {handleSave()}}>Save</button>
+    <button class="btn preset-filled-secondary-500" onclick={() => dialog.showModal()}>Add Meal</button>
+    <button class="btn preset-filled-primary-500" onclick={() => {handleSave()}}>Save</button>
     {/if}
 {/await}
 </div>

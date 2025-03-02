@@ -5,6 +5,7 @@
 	import { applyAction, deserialize } from '$app/forms';
 
     import type { RecipeData } from '$lib/types.js';
+    import DeleteConfirm from "$lib/DeleteConfirm.svelte";
 	import Ingredient from '$lib/Ingredient.svelte';
 	import SortableRow from '$lib/SortableRow.svelte';
     import { updatePosition } from '$lib/utils';
@@ -67,6 +68,21 @@
         }
     }
    
+    async function handleDelete() {
+        if (!ctx.session) {
+            console.error('Session is not available');
+            return;
+        }
+        const token = await ctx.session.getToken();
+        const response = await fetch(API + `/recipes/${data.id}`, {
+            method: 'DELETE',
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+        goto('/recipes'); 
+    }
+
 	/** @param {SubmitEvent & { currentTarget: EventTarget & HTMLFormElement}} event */
     async function handleSubmit(event : SubmitEvent) {
 		event.preventDefault();
@@ -76,21 +92,7 @@
         }
         const token = await ctx.session.getToken();
         console.log("Sending to: ", API + (newRecipe ? '/recipes' : `/recipes/${data.id}`));
-        
-        const deleteMeal = event.submitter && 
-            (event.submitter as HTMLButtonElement).formAction && 
-            (event.submitter as HTMLButtonElement).formAction.includes("?/delete");
-
-		if (deleteMeal) {
-            const response = await fetch(API + `/recipes/${data.id}`, {
-                method: 'DELETE',
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            });
-            goto('/recipes');
-        }
-        
+                
         const response = await fetch(API + (newRecipe ? '/recipes' : `/recipes/${data.id}`), {
 			method: newRecipe ? 'POST' : 'PUT',
             headers: {
@@ -179,17 +181,14 @@
         <button class="btn" type="button" onclick={function () {data.steps = [...data.steps, {text: '', order: data.steps.length}]}}>Add Step</button>
     </div>
     <div class="container my-4">
-        <button class="btn btn-primary" type="submit">Save</button>
-        <button class="btn btn-secondary" type="button" onclick={oncancel}>Cancel</button>    
+        <button class="btn preset-filled-primary-500" type="submit">Save</button>
+        <button class="btn preset-filled-secondary-500" type="button" onclick={oncancel}>Cancel</button>    
         {#if !newRecipe}
-        <button class="btn btn-error" type="button" onclick={() => delete_warning.showModal()}>Delete</button>
-        <dialog bind:this={delete_warning} class="modal modal-bottom sm:modal-middle">
-            <div class="p-4 modal-box">
-                <h2>Are you sure you want to delete this recipe?</h2>
-                <button class="btn btn-error" formaction="?/delete">Delete</button>
-                <button class="btn btn-secondary" onclick={(e) => {e.preventDefault(); delete_warning.close();}}>No</button>
-            </div>
-        </dialog>
+        <button class="btn preset-filled-error-500" type="button" onclick={() => delete_warning.showModal()}>Delete</button>
         {/if}
     </div>
 </form>
+
+<DeleteConfirm bind:dialog={delete_warning} onselect={handleDelete}>
+    <h2>Are you sure you want to delete this recipe?</h2>
+</DeleteConfirm>

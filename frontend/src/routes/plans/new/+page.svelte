@@ -51,9 +51,9 @@
     <form onsubmit={handleSubmit}>
         <input type="hidden" id="id" bind:value={data.id}>
         <label for="start_date">Start Date:</label>
-        <input type="date" id="start_date" bind:value={data.start_date} required>
+        <input type="date" class="input" id="start_date" bind:value={data.start_date} required>
         <label for="end_date">End Date:</label>
-        <input type="date" id="end_date" bind:value={data.end_date} required>
-        <button type="submit">Create Plan</button>
+        <input type="date" class="input" id="end_date" bind:value={data.end_date} required>
+        <button class="btn preset-filled-primary-500" type="submit">Create Plan</button>
     </form>
 </div>
