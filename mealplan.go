@@ -51,7 +51,8 @@ func requiresAuthentication(r *http.Request) (*clerk.User, error) {
 	if err != nil {
 		return nil, errors.New("user not found")
 	}
-	fmt.Printf(`{"user_id": "%s", "email": "%s", "user_banned": "%t"}\n`, usr.ID, usr.EmailAddresses[0].EmailAddress, usr.Banned)
+	fmt.Printf(`{"user_id": "%s", "email": "%s", "user_banned": "%t"}`, usr.ID, usr.EmailAddresses[0].EmailAddress, usr.Banned)
+	fmt.Println()
 	return usr, nil
 }
 
@@ -423,6 +424,22 @@ func DeleteRecipe(w http.ResponseWriter, r *http.Request) {
 
 func GetPlans(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
+
+	if r.URL.Query().Get("last") != "" {
+		user, err := requiresAuthentication(r)
+		if err != nil {
+			http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+			return
+		}
+
+		plan, err := models.GetLastPlan(db, user.ID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(plan)
+		return
+	}
 
 	plans, err := models.GetPlans(db)
 	if err != nil {

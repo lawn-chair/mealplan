@@ -8,6 +8,10 @@
     import DeleteConfirm from '$lib/DeleteConfirm.svelte';
     import Card from '$lib/Card.svelte';
 	import { applyAction, deserialize } from '$app/forms';
+    import { getContext } from 'svelte';
+    import { type ToastContext } from '@skeletonlabs/skeleton-svelte';
+
+    const toast: ToastContext = getContext('toast');
 
     interface Props {
         data: {
@@ -61,6 +65,13 @@
             console.log(result);
             applyAction(result);
             editing = false;
+
+            toast.create({
+            title: 'Success',
+            description: 'The task was was completed successfully!',
+            type: 'success'
+            });
+            
         }
 
     }

@@ -140,7 +140,7 @@ async function handleSubmit(event : SubmitEvent) {
 			// rerun all `load` functions, following the successful update
 			await invalidateAll();
 		}
-        console.log(result);
+
 		applyAction(result);
         onsave(result);
 	}

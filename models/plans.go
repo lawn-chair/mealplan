@@ -66,6 +66,17 @@ func GetPlans(db *sqlx.DB) (*[]Plan, error) {
 	return &plans, nil
 }
 
+func GetLastPlan(db *sqlx.DB, userID string) (*Plan, error) {
+	plan := Plan{}
+	err := db.Get(&plan, "SELECT * FROM plans WHERE user_id=$1 ORDER BY start_date DESC LIMIT 1", userID)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	return &plan, nil
+}
+
 func GetPlan(db *sqlx.DB, id int) (*Plan, error) {
 	plan := Plan{}
 	err := db.Get(&plan, "SELECT * FROM plans WHERE id=$1", id)
@@ -89,7 +100,21 @@ func GetPlan(db *sqlx.DB, id int) (*Plan, error) {
 	return &plan, nil
 }
 
+func ValidatePlan(p *Plan) error {
+	if p.StartDate.Before(time.Now()) || p.EndDate.Before(time.Now()) {
+		return fmt.Errorf("Start date and end date must be in the future")
+	} else if p.StartDate.After(p.EndDate.Time) {
+		return fmt.Errorf("Start date must be before end date")
+	}
+
+	return nil
+}
+
 func CreatePlan(db *sqlx.DB, p *Plan) (*Plan, error) {
+
+	if err := ValidatePlan(p); err != nil {
+		return nil, err
+	}
 
 	tx, err := db.Beginx()
 	if err != nil {
@@ -116,6 +141,10 @@ func CreatePlan(db *sqlx.DB, p *Plan) (*Plan, error) {
 }
 
 func UpdatePlan(db *sqlx.DB, id int, p *Plan) (*Plan, error) {
+	if err := ValidatePlan(p); err != nil {
+		return nil, err
+	}
+
 	tx, err := db.Beginx()
 	if err != nil {
 		fmt.Println(err)

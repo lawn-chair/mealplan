@@ -1,6 +1,8 @@
 
+import {parse, format} from 'date-fns';
+
 export function formatDate(date: string) {
-  return new Date(date).toLocaleDateString(undefined, {year: 'numeric', month: 'short', day: 'numeric'});
+  return format(parse(date, "yyyy-MM-dd", new Date), "MMMM d, yyyy");
 }
 
 export const updatePosition = (arr: {id?: number, text: string, order: number}[], oPos: number, nPos: number, offset = 0) => {
