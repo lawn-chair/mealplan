@@ -56,6 +56,11 @@ func requiresAuthentication(r *http.Request) (*clerk.User, error) {
 	return usr, nil
 }
 
+func ErrorResponse(w http.ResponseWriter, err string, status int) {
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]string{"error": err})
+}
+
 func main() {
 	godotenv.Load(".env.local")
 	godotenv.Load()
@@ -128,13 +133,13 @@ func main() {
 
 			_, err := requiresAuthentication(r)
 			if err != nil {
-				http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+				ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
 				return
 			}
 
 			file, fileHeader, err := r.FormFile("file")
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				ErrorResponse(w, err.Error(), http.StatusBadRequest)
 				return
 			}
 			defer file.Close()
@@ -148,7 +153,7 @@ func main() {
 				Region: "auto",
 			})
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 			uuid := uuid.New()
@@ -161,7 +166,7 @@ func main() {
 				minio.PutObjectOptions{ContentType: "application/octet-stream"})
 
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 			fmt.Println("Uploaded file: ", uuid.String()+fileHeader.Filename)
@@ -170,7 +175,7 @@ func main() {
 	})
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "404 - Not Found", http.StatusNotFound)
+		ErrorResponse(w, "404 - Not Found", http.StatusNotFound)
 	})
 
 	fmt.Println("Server starting on port 8080")
@@ -190,7 +195,7 @@ func IdCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.Atoi(chi.URLParam(r, "id"))
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			ErrorResponse(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		ctx := context.WithValue(r.Context(), "id", id)
@@ -204,19 +209,19 @@ func GetMeals(w http.ResponseWriter, r *http.Request) {
 	if slug := r.URL.Query().Get("slug"); slug != "" {
 		id, err := models.GetMealIdFromSlug(db, slug)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusNotFound)
+			ErrorResponse(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		meal, err := models.GetMeal(db, id)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		json.NewEncoder(w).Encode(meal)
 	} else {
 		meals, err := models.GetMeals(db)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		json.NewEncoder(w).Encode(meals)
@@ -229,7 +234,7 @@ func GetMeal(w http.ResponseWriter, r *http.Request) {
 
 	meal, err := models.GetMeal(db, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	json.NewEncoder(w).Encode(meal)
@@ -241,22 +246,22 @@ func UpdateMeal(w http.ResponseWriter, r *http.Request) {
 
 	_, err := requiresAuthentication(r)
 	if err != nil {
-		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
 		return
 	}
 
 	data := new(models.Meal)
 	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	meal, err := models.UpdateMeal(db, id, data)
 	if err != nil {
 		if err == models.ErrValidation {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		}
 		return
 	}
@@ -267,22 +272,22 @@ func CreateMeal(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
 	_, err := requiresAuthentication(r)
 	if err != nil {
-		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
 		return
 	}
 
 	data := new(models.Meal)
 	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	meal, err := models.CreateMeal(db, data)
 	if err != nil {
 		if err == models.ErrValidation {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		}
 		return
 	}
@@ -295,13 +300,13 @@ func DeleteMeal(w http.ResponseWriter, r *http.Request) {
 
 	_, err := requiresAuthentication(r)
 	if err != nil {
-		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
 		return
 	}
 
 	err = models.DeleteMeal(db, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -314,19 +319,19 @@ func GetRecipes(w http.ResponseWriter, r *http.Request) {
 	if slug := r.URL.Query().Get("slug"); slug != "" {
 		id, err := models.GetRecipeIdFromSlug(db, slug)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusNotFound)
+			ErrorResponse(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		recipe, err := models.GetRecipe(db, id)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		json.NewEncoder(w).Encode(recipe)
 	} else {
 		recipes, err := models.GetRecipes(db)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		json.NewEncoder(w).Encode(recipes)
@@ -339,7 +344,7 @@ func GetRecipe(w http.ResponseWriter, r *http.Request) {
 
 	recipe, err := models.GetRecipe(db, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	json.NewEncoder(w).Encode(recipe)
@@ -351,22 +356,22 @@ func UpdateRecipe(w http.ResponseWriter, r *http.Request) {
 
 	_, err := requiresAuthentication(r)
 	if err != nil {
-		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
 		return
 	}
 
 	data := new(models.Recipe)
 	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	recipe, err := models.UpdateRecipe(db, id, data)
 	if err != nil {
 		if err == models.ErrValidation {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		}
 		return
 	}
@@ -377,22 +382,22 @@ func CreateRecipe(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
 	_, err := requiresAuthentication(r)
 	if err != nil {
-		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
 		return
 	}
 
 	data := new(models.Recipe)
 	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	recipe, err := models.CreateRecipe(db, data)
 	if err != nil {
 		if err == models.ErrValidation {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		}
 		return
 	}
@@ -403,19 +408,19 @@ func DeleteRecipe(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	_, err = requiresAuthentication(r)
 	if err != nil {
-		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
 		return
 	}
 
 	err = models.DeleteRecipe(db, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -428,13 +433,13 @@ func GetPlans(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("last") != "" {
 		user, err := requiresAuthentication(r)
 		if err != nil {
-			http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+			ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
 			return
 		}
 
 		plan, err := models.GetLastPlan(db, user.ID)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		json.NewEncoder(w).Encode(plan)
@@ -443,7 +448,7 @@ func GetPlans(w http.ResponseWriter, r *http.Request) {
 
 	plans, err := models.GetPlans(db)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	json.NewEncoder(w).Encode(plans)
@@ -455,7 +460,7 @@ func GetPlan(w http.ResponseWriter, r *http.Request) {
 
 	plan, err := models.GetPlan(db, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	json.NewEncoder(w).Encode(plan)
@@ -467,28 +472,28 @@ func UpdatePlan(w http.ResponseWriter, r *http.Request) {
 
 	user, err := requiresAuthentication(r)
 	if err != nil {
-		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
 		return
 	}
 
 	data := new(models.Plan)
 	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	plan, err := models.GetPlan(db, id)
 	if err != nil || (plan.UserID != user.ID) || (data.UserID != "" && data.UserID != user.ID) {
-		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
 	}
 	data.UserID = user.ID
 
 	plan, err = models.UpdatePlan(db, id, data)
 	if err != nil {
 		if err == models.ErrValidation {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		}
 		return
 	}
@@ -499,13 +504,13 @@ func CreatePlan(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
 	user, err := requiresAuthentication(r)
 	if err != nil {
-		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
 		return
 	}
 
 	data := new(models.Plan)
 	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	data.UserID = user.ID
@@ -513,9 +518,9 @@ func CreatePlan(w http.ResponseWriter, r *http.Request) {
 	plan, err := models.CreatePlan(db, data)
 	if err != nil {
 		if err == models.ErrValidation {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		}
 		return
 	}
@@ -528,18 +533,18 @@ func DeletePlan(w http.ResponseWriter, r *http.Request) {
 
 	user, err := requiresAuthentication(r)
 	if err != nil {
-		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
 		return
 	}
 
 	plan, err := models.GetPlan(db, id)
 	if err != nil || (plan.UserID != user.ID) {
-		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
 	}
 
 	err = models.DeletePlan(db, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -552,7 +557,7 @@ func GetPlanIngredients(w http.ResponseWriter, r *http.Request) {
 
 	ingredients, err := models.GetPlanIngredients(db, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	json.NewEncoder(w).Encode(ingredients)
