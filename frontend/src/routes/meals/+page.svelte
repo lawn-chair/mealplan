@@ -21,7 +21,7 @@
 </svelte:head>
 
 <main class="py-6 px-4 sm:p-6 md:py-10 md:px-8">
-    <div class="container mx-auto flex flex-wrap items-center justify-around gap-4">
+    <div class="container mx-auto flex flex-wrap justify-around gap-4 items-stretch">
         {#if data}
             {#each data.mealData as meal}
                 <Card obj={meal}  url="/meals/{meal.slug}" />

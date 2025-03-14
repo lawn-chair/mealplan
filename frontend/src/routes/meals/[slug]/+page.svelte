@@ -42,24 +42,27 @@
     <Hero {...mealData} {editing} fallback='/meal-blank.jpg' {userId} onclick={() => {editing = !editing}}/>
 
     {#if !editing}
-    <div class="prose">
-        <h2>Ingredients:</h2>
-        <ul>
-        {#each mealData.ingredients as ingredient}
-            <li>{ingredient.amount} {ingredient.name}</li>
-        {/each}
-        </ul>
+    <div class="container flex flex-col md:flex-row gap-4">
+        <div class="p-4 card backdrop-brightness-200 h-full md:w-1/3">
+            <h2 class="h4">Ingredients:</h2>
+            <ul class="list-disc p-4">
+            {#each mealData.ingredients as ingredient}
+                <li>{ingredient.amount} {ingredient.name}</li>
+            {/each}
+            </ul>
+        </div>
+
+        <div class="p-4 md:w-2/3">
+            <h2 class="h4">Steps:</h2>
+            <ol class="list-decimal p-4">
+            {#each mealData.steps as step}
+                <li>{step.text}</li>
+            {/each}
+            </ol>
+        </div>
     </div>
-    <div class="prose">
-        <h2>Steps:</h2>
-        <ol>
-        {#each mealData.steps as step}
-            <li>{step.text}</li>
-        {/each}
-        </ol>
-    </div>
-    <div>
-        <span class="prose"><h2>Recipes:</h2></span>
+    <div class="p-4 md:w-2/3">
+        <span><h2 class="h4">Recipes:</h2></span>
         {#await recipes}
             <p>Loading...</p>
         {:then recipes}

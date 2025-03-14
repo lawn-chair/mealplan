@@ -18,7 +18,7 @@
 
 <main class="py-6 px-4 sm:p-6 md:py-10 md:px-8">
 {#if !newRecipe}
-    <div class="container mx-auto flex flex-wrap items-center justify-around gap-4">
+    <div class="container mx-auto flex flex-wrap items-stretch justify-around gap-4">
         {#if data}
             {#each data.recipeData as recipe}
                 <Card obj={recipe} url="/recipes/{recipe.slug}"/>

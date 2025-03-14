@@ -29,8 +29,6 @@
         return planData;
     });
 
-    let editing = $state(false);
-
     async function deletePlan() {
         let token = await ctx.session?.getToken();
 
@@ -55,25 +53,38 @@
             },
             body: JSON.stringify(planData),
         });
-
+        console.log(response);
         /** @type {import('@sveltejs/kit').ActionResult} */
 		const result = deserialize(await response.text());
 
-        if (result.type === 'success') {
+        if (response.ok) {
             // rerun all `load` functions, following the successful update
             await invalidateAll();
             console.log(result);
             applyAction(result);
-            editing = false;
 
             toast.create({
-            title: 'Success',
-            description: 'The task was was completed successfully!',
+            title: 'Saved',
+            description: 'Plan was successfully updated',
             type: 'success'
             });
-            
+
+        } else {
+
+            toast.create({
+            title: 'Error',
+            description: 'There was an error updating the plan: ' + result.error,
+            type: 'error'
+            });
         }
 
+    }
+
+    function removeMeal(meal: MealData) {
+        if (!planData.meals) {
+            return;
+        }
+        planData.meals = planData.meals.filter(m => m !== meal.id);
     }
 
     let dialog :HTMLDialogElement
@@ -90,7 +101,6 @@
 {:then planData}
     <h1 class="h3 py-4">{formatDate(planData.start_date)} - {formatDate(planData.end_date)}</h1>
     <button class="btn preset-filled-error-500" onclick={() => {deleteDialog.showModal()}}>Delete Plan</button>
-    <button class="btn preset-filled-primary-500" onclick={() => {editing = !editing}}>Edit Plan</button>
     <h2 class="h3 py-4">Meals:</h2>
     <div class="flex flex-wrap gap-4">
         {#if !planData.meals}
@@ -98,15 +108,16 @@
         {:else}
             {#each planData.meals as meal}
                 {#if data.meals.find(m => m.id === meal)}
-                    <Card obj={data.meals.find(m => m.id === meal)} />
+                    <Card obj={data.meals.find(m => m.id === meal)} ondelete={removeMeal} />
                 {/if}
             {/each}
         {/if}
     </div>
-    {#if editing}
-    <button class="btn preset-filled-secondary-500" onclick={() => dialog.showModal()}>Add Meal</button>
-    <button class="btn preset-filled-primary-500" onclick={() => {handleSave()}}>Save</button>
-    {/if}
+    
+    <div class="py-4">
+        <button class="btn preset-filled-secondary-500" onclick={() => dialog.showModal()}>Add Meal</button>
+        <button class="btn preset-filled-primary-500" onclick={() => {handleSave()}}>Save</button>
+    </div>
 {/await}
 </div>
 

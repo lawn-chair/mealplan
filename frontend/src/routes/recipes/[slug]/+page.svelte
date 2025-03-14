@@ -39,27 +39,32 @@
 {#if data}
     <Hero {...recipeData} {editing} fallback='/recipe-blank.jpg' {userId} onclick={() => {editing = !editing}}/>
     {#if !editing}
-    <div class="prose">
-    <h3>Ingredients:</h3>
-    <ul>
-        {#if !recipeData.ingredients}
-            <li class="">No ingredients</li>
-        {:else}
-            {#each recipeData.ingredients as ingredient}
-                <li class="">{ingredient.amount} {ingredient.name}</li>
-            {/each}
-        {/if}
-    </ul>
-    <h3 class="">Instructions:</h3>
-    <ul>
-        {#if !recipeData.steps}
-            <li>No steps</li>
-        {:else}
-        {#each recipeData.steps as step}
-            <li class="">{step.text}</li>
-        {/each}
-        {/if}
-    </ul>
+    <div class="container flex flex-col md:flex-row gap-4">
+        <div class="p-4 card backdrop-brightness-200 h-full md:w-1/3">
+            <h3 class="h4">Ingredients:</h3>
+            <ul class="list-disc p-4">
+                {#if !recipeData.ingredients}
+                    <li class="">No ingredients</li>
+                {:else}
+                    {#each recipeData.ingredients as ingredient}
+                        <li class="">{ingredient.amount} {ingredient.name}</li>
+                    {/each}
+                {/if}
+            </ul>
+        </div>
+
+        <div class="p-4 md:w-2/3">
+            <h3 class="h4">Instructions:</h3>
+            <ul class="list-decimal p-4">
+                {#if !recipeData.steps}
+                    <li>No steps</li>
+                {:else}
+                {#each recipeData.steps as step}
+                    <li class="">{step.text}</li>
+                {/each}
+                {/if}
+            </ul>
+        </div>
     </div>
 {:else}
     <RecipeForm data={recipeData} oncancel={function () {editing = !editing}}/>

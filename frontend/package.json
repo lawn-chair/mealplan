@@ -52,6 +52,7 @@
 		"@tailwindcss/vite": "^4.0.9",
 		"date-fns": "^4.1.0",
 		"dotenv": "^16.4.7",
+		"lucide-svelte": "^0.477.0",
 		"svelte-clerk": "^0.8.0"
 	}
 }
