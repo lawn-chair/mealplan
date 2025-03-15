@@ -55,6 +55,11 @@ type Ingredient struct {
 	Amount string `db:"amount" json:"amount"`
 }
 
+type ShoppingList struct {
+	Plan        Plan         `json:"plan"`
+	Ingredients []Ingredient `json:"ingredients"`
+}
+
 func GetPlans(db *sqlx.DB) (*[]Plan, error) {
 	plans := []Plan{}
 	err := db.Select(&plans, "SELECT * FROM plans")
@@ -69,6 +74,17 @@ func GetPlans(db *sqlx.DB) (*[]Plan, error) {
 func GetLastPlan(db *sqlx.DB, userID string) (*Plan, error) {
 	plan := Plan{}
 	err := db.Get(&plan, "SELECT * FROM plans WHERE user_id=$1 ORDER BY start_date DESC LIMIT 1", userID)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	return &plan, nil
+}
+
+func GetNextPlan(db *sqlx.DB, userID string) (*Plan, error) {
+	plan := Plan{}
+	err := db.Get(&plan, "SELECT * FROM plans WHERE user_id=$1 AND start_date > NOW() ORDER BY start_date ASC LIMIT 1", userID)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
@@ -208,7 +224,7 @@ func DeletePlan(db *sqlx.DB, id int) error {
 
 func GetPlanIngredients(db *sqlx.DB, id int) (*[]Ingredient, error) {
 	ingredients := []Ingredient{}
-	err := db.Select(&ingredients, "SELECT i.name, i.amount FROM meal_ingredients i JOIN plan_meals pm ON pm.meal_id = i.meal_id WHERE pm.plan_id=%d", id)
+	err := db.Select(&ingredients, "SELECT i.name, i.amount FROM meal_ingredients i JOIN plan_meals pm ON pm.meal_id = i.meal_id WHERE pm.plan_id=$1", id)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err

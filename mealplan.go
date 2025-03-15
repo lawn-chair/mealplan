@@ -128,6 +128,8 @@ func main() {
 			})
 		})
 
+		api.Get("/shopping-list", GetShoppingList)
+
 		api.Post("/images", func(w http.ResponseWriter, r *http.Request) {
 			ctx := context.Background()
 
@@ -444,6 +446,20 @@ func GetPlans(w http.ResponseWriter, r *http.Request) {
 		}
 		json.NewEncoder(w).Encode(plan)
 		return
+	} else if r.URL.Query().Get("next") != "" {
+		user, err := requiresAuthentication(r)
+		if err != nil {
+			ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
+			return
+		}
+
+		plan, err := models.GetNextPlan(db, user.ID)
+		if err != nil {
+			ErrorResponse(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(plan)
+		return
 	}
 
 	plans, err := models.GetPlans(db)
@@ -561,4 +577,33 @@ func GetPlanIngredients(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(ingredients)
+}
+
+func GetShoppingList(w http.ResponseWriter, r *http.Request) {
+	db := r.Context().Value("db").(*sqlx.DB)
+
+	user, err := requiresAuthentication(r)
+	if err != nil {
+		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
+		return
+	}
+
+	plan, err := models.GetNextPlan(db, user.ID)
+	if err != nil {
+		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	ingredients, err := models.GetPlanIngredients(db, plan.ID)
+	if err != nil {
+		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	list := models.ShoppingList{
+		Plan:        *plan,
+		Ingredients: *ingredients,
+	}
+
+	json.NewEncoder(w).Encode(list)
 }
