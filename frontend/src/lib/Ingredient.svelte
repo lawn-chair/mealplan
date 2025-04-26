@@ -13,9 +13,9 @@
 </script>
 
 <div class="flex">
-    <div class="join w-full">
+    <div class="w-full">
         <input type="text" class="input join-item input-bordered w-24" name="ingredient.{i}.amount" bind:value={ingredient.amount}>
-        <input type="text" class="input join-item input-bordered w-full" name="ingredient.{i}.name" bind:value={ingredient.name}>
+        <input type="text" class="input join-item input-bordered" name="ingredient.{i}.name" bind:value={ingredient.name}>
     </div>
     <button aria-label="remove" class="btn btn-ghost" type="button" onclick={onremove}>
         <Trash2 />

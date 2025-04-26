@@ -4,7 +4,8 @@
 	import type { Snippet } from 'svelte';
 	import { ClerkProvider } from 'svelte-clerk';
 	import Navbar from './Navbar.svelte';
-	import { ToastProvider } from '@skeletonlabs/skeleton-svelte';
+	import { Toaster } from '@skeletonlabs/skeleton-svelte';
+	import { toaster } from '$lib/toaster-svelte';
 
 	const { children }: { children: Snippet } = $props();
 </script>
@@ -15,9 +16,10 @@
 <!-- ... -->
 <ClerkProvider publishableKey={env.PUBLIC_CLERK_PUBLISHABLE_KEY}>
 	<Navbar />
-	<ToastProvider>
-		{@render children()}
-	</ToastProvider>
+	
+	{@render children()}
+	
+	<Toaster {toaster}></Toaster>
 </ClerkProvider> 
 
 

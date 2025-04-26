@@ -5,7 +5,12 @@
     import Ingredient from "$lib/Ingredient.svelte";
     import DeleteConfirm from "$lib/DeleteConfirm.svelte";
 
-    import { Trash2, Menu } from 'lucide-svelte';
+    import { Trash2, Menu, ImagePlus, ImageIcon, UploadIcon } from 'lucide-svelte';
+
+    import { Tabs } from '@skeletonlabs/skeleton-svelte';
+    import { FileUpload } from '@skeletonlabs/skeleton-svelte';
+  // Icons
+  //import IconDropzone from 'lucide-svelte/icons/image-plus';
 
     import { API } from '$lib/api.js';
     import { invalidateAll, goto } from '$app/navigation';
@@ -68,8 +73,9 @@
         getRecipes();
     });
 
-async function uploadFile() {
-    const file = (document.getElementById('image_file') as HTMLInputElement).files?.[0];
+async function uploadFile(details: { files: File[] }) {
+    const file = details.files[0];
+
     if (!file) return;
 
     const formData = new FormData();
@@ -94,6 +100,7 @@ async function uploadFile() {
         if(response.ok) {
             const result = await response.json();
             data.image = {String: result.url, Valid: true};
+            tab = 'url';
         }
     } catch (error) {
         console.error('Error uploading file:', error);
@@ -149,6 +156,8 @@ async function handleSubmit(event : SubmitEvent) {
 
     let recipe_dialog : HTMLDialogElement;
     let delete_warning : HTMLDialogElement;
+
+    let tab = $state('url');
 </script>
 
 <form method="POST" enctype="multipart/form-data" action={newMeal ? "/meals/new":"?/update"} onsubmit={handleSubmit}>
@@ -167,17 +176,33 @@ async function handleSubmit(event : SubmitEvent) {
     </label>
 
     <label class="form-control" for="image">
-        <span class="label label-text">Image:</span>
-        <div role="tablist" class="tabs tabs-lifted">
-            <input type="radio" name="my_tabs_2" role="tab" class="tab" aria-label="URL" checked={true} />
-            <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-6">
+        <div class="py-4">
+        <Tabs value={tab} onValueChange={e => tab = e.value}>
+            {#snippet list()}
+            <Tabs.Control value="url"><ImageIcon /></Tabs.Control>
+            <Tabs.Control value="upload"><UploadIcon /></Tabs.Control>
+            {/snippet}
+            {#snippet content()}
+
+            <Tabs.Panel value="url">
                 <input class="input input-bordered" type="text" id="image" name="image" value={data.image?.String}>
-            </div>
-          
-            <input type="radio" name="my_tabs_2" role="tab" class="tab" aria-label="Upload" />
-            <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-6">
-              <input type="file" id="image_file" name="image_file" accept="image/*" onchange={uploadFile}>
-            </div>
+            </Tabs.Panel>
+            <Tabs.Panel value="upload">
+                <FileUpload
+                name="image_file"
+                accept="image/*"
+                onFileAccept={uploadFile}
+                onFileReject={console.error}
+                classes="w-full"
+                capture="environment"
+
+                >
+                {#snippet iconInterface()}<ImagePlus class="size-8" />{/snippet}
+                </FileUpload>
+            </Tabs.Panel>
+            {/snippet}
+        </Tabs>
+        </div>
     </label>
 
     </fieldset>
@@ -191,7 +216,7 @@ async function handleSubmit(event : SubmitEvent) {
                 onremove={function () {data.ingredients.splice(i, 1); data.ingredients = data.ingredients}}/> 
             {/each}
         </label>      
-        <button class="btn" type="button" onclick={function () {data.ingredients = [...data.ingredients, {amount: '', name: ''}]}}>Add Ingredient</button>
+        <button class="btn preset-filled-primary-100-900" type="button" onclick={function () {data.ingredients = [...data.ingredients, {amount: '', name: ''}]}}>Add Ingredient</button>
     </fieldset>
     <fieldset>
         <label class="form-control" for="steps">
@@ -212,7 +237,7 @@ async function handleSubmit(event : SubmitEvent) {
             {/each}
             </section>
         </label>
-        <button class="btn" type="button" onclick={function () {data.steps = [...data.steps, {id: data.steps.length, text: '', order: data.steps.length}]}}>Add Step</button>
+        <button class="btn preset-filled-primary-100-900" type="button" onclick={function () {data.steps = [...data.steps, {id: data.steps.length, text: '', order: data.steps.length}]}}>Add Step</button>
     </fieldset>
     <fieldset>
         <label class="form-control" for="recipes">

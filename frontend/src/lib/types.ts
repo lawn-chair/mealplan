@@ -27,3 +27,9 @@ export interface PlanData {
     user_id: string;
     meals?: number[];
 }
+
+export interface Pantry {
+    id?: number;
+    user_id: string;
+    items: string[]; 
+}
