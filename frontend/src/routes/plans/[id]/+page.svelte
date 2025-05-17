@@ -67,10 +67,10 @@
 			});
 		} else {
 			console.log(result);
-			if(result.hasOwnProperty('error')) {
+			if (result && typeof result === 'object' && 'error' in result) {
 				toaster.create({
 					title: 'Error',
-					description: 'There was an error updating the plan: ' + result.error,
+					description: 'There was an error updating the plan: ' + (result as any).error,
 					type: 'error'
 				});
 				return;
