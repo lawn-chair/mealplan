@@ -8,7 +8,6 @@
 	import DeleteConfirm from '$lib/DeleteConfirm.svelte';
 	import Card from '$lib/Card.svelte';
 	import { applyAction, deserialize } from '$app/forms';
-	import { getContext } from 'svelte';
 	import { toaster } from '$lib/toaster-svelte';
 
 	interface Props {
@@ -67,19 +66,30 @@
 				type: 'success'
 			});
 		} else {
+			console.log(result);
+			if(result.hasOwnProperty('error')) {
+				toaster.create({
+					title: 'Error',
+					description: 'There was an error updating the plan: ' + result.error,
+					type: 'error'
+				});
+				return;
+			}
 			toaster.create({
 				title: 'Error',
-				description: 'There was an error updating the plan: ' + result.error,
+				description: 'There was an error updating the plan',
 				type: 'error'
 			});
+
 		}
 	}
 
-	function removeMeal(meal: MealData) {
+	function removeMeal(meal: Number) {
 		if (!planData.meals) {
 			return;
 		}
-		planData.meals = planData.meals.filter((m) => m !== meal.id);
+		planData.meals = planData.meals.filter((m) => m !== meal);
+		handleSave();
 	}
 
 	let dialog: HTMLDialogElement;
@@ -108,7 +118,7 @@
 			{:else}
 				{#each planData.meals as meal}
 					{#if data.meals.find((m) => m.id === meal)}
-						<Card obj={data.meals.find((m) => m.id === meal)} ondelete={removeMeal} />
+						<Card obj={data.meals.find((m) => m.id === meal)} ondelete={() => {removeMeal(meal)}} />
 					{/if}
 				{/each}
 			{/if}
@@ -118,12 +128,7 @@
 			<button class="btn preset-filled-secondary-500" onclick={() => dialog.showModal()}
 				>Add Meal</button
 			>
-			<button
-				class="btn preset-filled-primary-500"
-				onclick={() => {
-					handleSave();
-				}}>Save</button
-			>
+
 		</div>
 	{/await}
 </div>
@@ -142,5 +147,6 @@
 		if (meal.id) {
 			planData.meals.push(meal.id);
 		}
+		handleSave();
 	}}
 />

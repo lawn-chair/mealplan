@@ -106,7 +106,7 @@
 					name="item"
 					placeholder="Add item..."
 					onchange={(e: Event) => {
-						if (!e.target?.value) {
+						if (!(e.target instanceof HTMLInputElement) || !e.target.value) {
 							return;
 						}
 						pantry.items.push(e.target?.value);
