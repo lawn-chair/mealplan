@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -21,7 +20,6 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/lawn-chair/mealplan/api"
-	"github.com/lawn-chair/mealplan/models"
 	"github.com/lawn-chair/mealplan/utils"
 
 	// Import the root CAs of the system - needed to allow Clerk to work in Docker
@@ -80,25 +78,25 @@ func main() {
 		})
 
 		apir.Route("/recipes", func(recipes chi.Router) {
-			recipes.Get("/", GetRecipes)
-			recipes.Post("/", CreateRecipe)
+			recipes.Get("/", api.GetRecipes)
+			recipes.Post("/", api.CreateRecipe)
 			recipes.Route("/{id}", func(recipe chi.Router) {
 				recipe.Use(IdCtx)
-				recipe.Get("/", GetRecipe)
-				recipe.Put("/", UpdateRecipe)
-				recipe.Delete("/", DeleteRecipe)
+				recipe.Get("/", api.GetRecipe)
+				recipe.Put("/", api.UpdateRecipe)
+				recipe.Delete("/", api.DeleteRecipe)
 			})
 		})
 
 		apir.Route("/plans", func(plans chi.Router) {
-			plans.Get("/", GetPlans)
-			plans.Post("/", CreatePlan)
+			plans.Get("/", api.GetPlans)
+			plans.Post("/", api.CreatePlan)
 			plans.Route("/{id}", func(plan chi.Router) {
 				plan.Use(IdCtx)
-				plan.Get("/", GetPlan)
-				plan.Put("/", UpdatePlan)
-				plan.Delete("/", DeletePlan)
-				plan.Get("/ingredients", GetPlanIngredients)
+				plan.Get("/", api.GetPlan)
+				plan.Put("/", api.UpdatePlan)
+				plan.Delete("/", api.DeletePlan)
+				plan.Get("/ingredients", api.GetPlanIngredients)
 			})
 		})
 
@@ -134,268 +132,4 @@ func IdCtx(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), "id", id)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
-}
-
-func GetRecipes(w http.ResponseWriter, r *http.Request) {
-	db := r.Context().Value("db").(*sqlx.DB)
-
-	if slug := r.URL.Query().Get("slug"); slug != "" {
-		id, err := models.GetRecipeIdFromSlug(db, slug)
-		if err != nil {
-			api.ErrorResponse(w, err.Error(), http.StatusNotFound)
-			return
-		}
-		recipe, err := models.GetRecipe(db, id)
-		if err != nil {
-			api.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		json.NewEncoder(w).Encode(recipe)
-	} else {
-		recipes, err := models.GetRecipes(db)
-		if err != nil {
-			api.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		json.NewEncoder(w).Encode(recipes)
-	}
-}
-
-func GetRecipe(w http.ResponseWriter, r *http.Request) {
-	db := r.Context().Value("db").(*sqlx.DB)
-	id := r.Context().Value("id").(int)
-
-	recipe, err := models.GetRecipe(db, id)
-	if err != nil {
-		api.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	json.NewEncoder(w).Encode(recipe)
-}
-
-func UpdateRecipe(w http.ResponseWriter, r *http.Request) {
-	db := r.Context().Value("db").(*sqlx.DB)
-	id := r.Context().Value("id").(int)
-
-	_, err := api.RequiresAuthentication(r)
-	if err != nil {
-		api.ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
-		return
-	}
-
-	data := new(models.Recipe)
-	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
-		api.ErrorResponse(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	recipe, err := models.UpdateRecipe(db, id, data)
-	if err != nil {
-		if err == models.ErrValidation {
-			api.ErrorResponse(w, err.Error(), http.StatusBadRequest)
-		} else {
-			api.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
-		}
-		return
-	}
-	json.NewEncoder(w).Encode(recipe)
-}
-
-func CreateRecipe(w http.ResponseWriter, r *http.Request) {
-	db := r.Context().Value("db").(*sqlx.DB)
-	_, err := api.RequiresAuthentication(r)
-	if err != nil {
-		api.ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
-		return
-	}
-
-	data := new(models.Recipe)
-	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
-		api.ErrorResponse(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	recipe, err := models.CreateRecipe(db, data)
-	if err != nil {
-		if err == models.ErrValidation {
-			api.ErrorResponse(w, err.Error(), http.StatusBadRequest)
-		} else {
-			api.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
-		}
-		return
-	}
-	json.NewEncoder(w).Encode(recipe)
-}
-
-func DeleteRecipe(w http.ResponseWriter, r *http.Request) {
-	db := r.Context().Value("db").(*sqlx.DB)
-	id, err := strconv.Atoi(chi.URLParam(r, "id"))
-	if err != nil {
-		api.ErrorResponse(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	_, err = api.RequiresAuthentication(r)
-	if err != nil {
-		api.ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
-		return
-	}
-
-	err = models.DeleteRecipe(db, id)
-	if err != nil {
-		api.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func GetPlans(w http.ResponseWriter, r *http.Request) {
-	db := r.Context().Value("db").(*sqlx.DB)
-
-	if r.URL.Query().Get("last") != "" {
-		user, err := api.RequiresAuthentication(r)
-		if err != nil {
-			api.ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
-			return
-		}
-
-		plan, err := models.GetLastPlan(db, user.ID)
-		if err != nil {
-			api.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		json.NewEncoder(w).Encode(plan)
-		return
-	} else if r.URL.Query().Get("next") != "" {
-		user, err := api.RequiresAuthentication(r)
-		if err != nil {
-			api.ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
-			return
-		}
-
-		plan, err := models.GetNextPlan(db, user.ID)
-		if err != nil {
-			api.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		json.NewEncoder(w).Encode(plan)
-		return
-	}
-
-	plans, err := models.GetPlans(db)
-	if err != nil {
-		api.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	json.NewEncoder(w).Encode(plans)
-}
-
-func GetPlan(w http.ResponseWriter, r *http.Request) {
-	db := r.Context().Value("db").(*sqlx.DB)
-	id := r.Context().Value("id").(int)
-
-	plan, err := models.GetPlan(db, id)
-	if err != nil {
-		api.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	json.NewEncoder(w).Encode(plan)
-}
-
-func UpdatePlan(w http.ResponseWriter, r *http.Request) {
-	db := r.Context().Value("db").(*sqlx.DB)
-	id := r.Context().Value("id").(int)
-
-	user, err := api.RequiresAuthentication(r)
-	if err != nil {
-		api.ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
-		return
-	}
-
-	data := new(models.Plan)
-	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
-		api.ErrorResponse(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	plan, err := models.GetPlan(db, id)
-	if err != nil || (plan.UserID != user.ID) || (data.UserID != "" && data.UserID != user.ID) {
-		api.ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
-	}
-	data.UserID = user.ID
-
-	plan, err = models.UpdatePlan(db, id, data)
-	if err != nil {
-		if err == models.ErrValidation {
-			api.ErrorResponse(w, err.Error(), http.StatusBadRequest)
-		} else {
-			api.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
-		}
-		return
-	}
-	json.NewEncoder(w).Encode(plan)
-}
-
-func CreatePlan(w http.ResponseWriter, r *http.Request) {
-	db := r.Context().Value("db").(*sqlx.DB)
-	user, err := api.RequiresAuthentication(r)
-	if err != nil {
-		api.ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
-		return
-	}
-
-	data := new(models.Plan)
-	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
-		api.ErrorResponse(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	data.UserID = user.ID
-
-	plan, err := models.CreatePlan(db, data)
-	if err != nil {
-		if err == models.ErrValidation {
-			api.ErrorResponse(w, err.Error(), http.StatusBadRequest)
-		} else {
-			api.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
-		}
-		return
-	}
-	json.NewEncoder(w).Encode(plan)
-}
-
-func DeletePlan(w http.ResponseWriter, r *http.Request) {
-	db := r.Context().Value("db").(*sqlx.DB)
-	id := r.Context().Value("id").(int)
-
-	user, err := api.RequiresAuthentication(r)
-	if err != nil {
-		api.ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
-		return
-	}
-
-	plan, err := models.GetPlan(db, id)
-	if err != nil || (plan.UserID != user.ID) {
-		api.ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
-	}
-
-	err = models.DeletePlan(db, id)
-	if err != nil {
-		api.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func GetPlanIngredients(w http.ResponseWriter, r *http.Request) {
-	db := r.Context().Value("db").(*sqlx.DB)
-	id := r.Context().Value("id").(int)
-
-	ingredients, err := models.GetPlanIngredients(db, id)
-	if err != nil {
-		api.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	json.NewEncoder(w).Encode(ingredients)
 }
