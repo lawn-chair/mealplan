@@ -5,6 +5,7 @@
     import { goto } from '$app/navigation';
     import type { PlanData } from '$lib/types.js';
 	import { onMount } from 'svelte';
+    import { toaster } from '$lib/toaster-svelte';
 
     const ctx = useClerkContext();
     const userId = ctx.auth.userId || '';
@@ -37,8 +38,21 @@
 		if (response.ok) {
 		    const result : PlanData = await JSON.parse(await response.text());
             console.log(result);
+            
+            toaster.create({
+                title: 'Success',
+                description: 'Plan created successfully',
+                type: 'success'
+            });
+            
             goto(`/plans/${result.id}`);
-		}
+		} else {
+            toaster.create({
+                title: 'Error',
+                description: 'Failed to create plan',
+                type: 'error'
+            });
+        }
 	}
 
     function setDefaultDate() {

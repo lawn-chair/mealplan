@@ -29,13 +29,28 @@
 	async function deletePlan() {
 		let token = await ctx.session?.getToken();
 
-		await fetch(API + `/plans/${planData.id}`, {
+		const response = await fetch(API + `/plans/${planData.id}`, {
 			method: 'DELETE',
 			headers: {
 				'Content-Type': 'application/json',
 				Authorization: `Bearer ${token}`
 			}
 		});
+
+		if (response.ok) {
+			toaster.create({
+				title: 'Success',
+				description: 'Plan deleted successfully',
+				type: 'success'
+			});
+		} else {
+			toaster.create({
+				title: 'Error',
+				description: 'Failed to delete plan',
+				type: 'error'
+			});
+		}
+		
 		goto('/plans/');
 	}
 

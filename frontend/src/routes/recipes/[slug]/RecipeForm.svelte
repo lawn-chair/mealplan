@@ -3,6 +3,7 @@
     import { API } from '$lib/api';
 	import { invalidateAll, goto } from '$app/navigation';
 	import { applyAction, deserialize } from '$app/forms';
+    import { toaster } from '$lib/toaster-svelte';
     
     import { Trash2, Menu } from 'lucide-svelte';
     
@@ -82,6 +83,21 @@
                 Authorization: `Bearer ${token}`
             }
         });
+        
+        if (response.ok) {
+            toaster.create({
+                title: 'Success',
+                description: 'Recipe deleted successfully',
+                type: 'success'
+            });
+        } else {
+            toaster.create({
+                title: 'Error',
+                description: 'Failed to delete recipe',
+                type: 'error'
+            });
+        }
+        
         goto('/recipes'); 
     }
 
@@ -104,17 +120,29 @@
 			body: JSON.stringify(data),
 		});
 
-		if (response.ok) {
-            /** @type {import('@sveltejs/kit').ActionResult} */
-            const result = deserialize(await response.text());
+		/** @type {import('@sveltejs/kit').ActionResult} */
+        const result = deserialize(await response.text());
 
+        if (response.ok) {
             if (result.type === 'success') {
                 // rerun all `load` functions, following the successful update
                 await invalidateAll();
+                
+                toaster.create({
+                    title: 'Success',
+                    description: newRecipe ? 'Recipe created successfully' : 'Recipe updated successfully',
+                    type: 'success'
+                });
             }
-
-            applyAction(result);
+        } else {
+            toaster.create({
+                title: 'Error',
+                description: `Failed to ${newRecipe ? 'create' : 'update'} recipe`,
+                type: 'error'
+            });
         }
+
+        applyAction(result);
 	}
 
     let delete_warning : HTMLDialogElement;

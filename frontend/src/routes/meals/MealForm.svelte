@@ -16,6 +16,7 @@
     import { invalidateAll, goto } from '$app/navigation';
 	import { applyAction, deserialize } from '$app/forms';
     import { useClerkContext } from 'svelte-clerk';
+    import { toaster } from '$lib/toaster-svelte';
 
     import type { RecipeData, MealData } from '$lib/types.js';
 	import SortableRow from "$lib/SortableRow.svelte";
@@ -120,6 +121,21 @@ async function handleDelete() {
             Authorization: `Bearer ${token}`
         }
     });
+    
+    if (response.ok) {
+        toaster.create({
+            title: 'Success',
+            description: 'Meal deleted successfully',
+            type: 'success'
+        });
+    } else {
+        toaster.create({
+            title: 'Error',
+            description: 'Failed to delete meal',
+            type: 'error'
+        });
+    }
+    
     goto('/meals');
 }
 
@@ -148,7 +164,19 @@ async function handleSubmit(event : SubmitEvent) {
 		if (result.type === 'success') {
 			// rerun all `load` functions, following the successful update
 			await invalidateAll();
-		}
+            
+            toaster.create({
+                title: 'Success',
+                description: newMeal ? 'Meal created successfully' : 'Meal updated successfully',
+                type: 'success'
+            });
+		} else {
+            toaster.create({
+                title: 'Error',
+                description: `Failed to ${newMeal ? 'create' : 'update'} meal`,
+                type: 'error'
+            });
+        }
 
 		applyAction(result);
         onsave(result);
