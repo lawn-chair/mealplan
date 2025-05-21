@@ -39,6 +39,14 @@ func GetPlans(w http.ResponseWriter, r *http.Request) {
 		}
 		json.NewEncoder(w).Encode(plan)
 		return
+	} else if r.URL.Query().Get("future") != "" {
+		plans, err := models.GetFuturePlans(db)
+		if err != nil {
+			ErrorResponse(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(plans)
+		return
 	}
 
 	plans, err := models.GetPlans(db)

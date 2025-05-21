@@ -232,3 +232,14 @@ func GetPlanIngredients(db *sqlx.DB, id int) (*[]Ingredient, error) {
 
 	return &ingredients, nil
 }
+
+func GetFuturePlans(db *sqlx.DB) (*[]Plan, error) {
+	plans := []Plan{}
+	err := db.Select(&plans, "SELECT * FROM plans WHERE end_date > NOW() ORDER BY start_date ASC")
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	return &plans, nil
+}
