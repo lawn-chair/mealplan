@@ -163,5 +163,5 @@ func GetPlanIngredients(w http.ResponseWriter, r *http.Request) {
 		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(ingredients)
+	json.NewEncoder(w).Encode(*ingredients)
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/clerk/clerk-sdk-go/v2/user"
 )
 
-func RequiresAuthentication(r *http.Request) (*clerk.User, error) {
+var RequiresAuthentication = func(r *http.Request) (*clerk.User, error) {
 	claims, ok := clerk.SessionClaimsFromContext(r.Context())
 	if !ok {
 		return nil, errors.New("unauthorized")
