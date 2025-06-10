@@ -10,7 +10,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
-var ErrValidation = errors.New("name, description, and slug are required")
+var ErrValidation = errors.New("name and description are required")
 
 type RecipeIngredient struct {
 	ID       int    `db:"id" json:"id"`
@@ -95,7 +95,7 @@ func NullStringWrapper(s string) sql.NullString {
 }
 
 func UpdateRecipe(db *sqlx.DB, i int, r *Recipe) (*Recipe, error) {
-	if r.Name == "" || r.Description == "" || r.Slug == "" {
+	if r.Name == "" || r.Description == "" {
 		return nil, ErrValidation
 	}
 
