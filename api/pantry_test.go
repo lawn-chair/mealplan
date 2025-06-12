@@ -21,14 +21,7 @@ func TestGetPantryHandler(t *testing.T) {
 
 	// Setup mock authentication
 	testUserID := "test-user-id"
-	mockAuthFunc := func(r *http.Request) (*clerk.User, error) {
-		return &clerk.User{ID: testUserID}, nil
-	}
-
-	// Save original RequiresAuthentication function and restore it after the test
-	originalFunc := RequiresAuthentication
-	RequiresAuthentication = mockAuthFunc
-	defer func() { RequiresAuthentication = originalFunc }()
+	mockUser := &clerk.User{ID: testUserID}
 
 	// Mock for GetPantry
 	rows := sqlmock.NewRows([]string{"id", "user_id"}).AddRow(1, testUserID)
@@ -49,8 +42,9 @@ func TestGetPantryHandler(t *testing.T) {
 	req := httptest.NewRequest("GET", "/api/pantry", nil)
 	rec := httptest.NewRecorder()
 
-	// Set up context with mocked DB
+	// Set up context with mocked DB and authenticated user
 	ctx := context.WithValue(req.Context(), "db", sqlxDB)
+	ctx = context.WithValue(ctx, "user", mockUser) // Simulate middleware
 	req = req.WithContext(ctx)
 
 	// Call the handler
@@ -79,14 +73,7 @@ func TestUpdatePantryHandler(t *testing.T) {
 
 	// Setup mock authentication
 	testUserID := "test-user-id"
-	mockAuthFunc := func(r *http.Request) (*clerk.User, error) {
-		return &clerk.User{ID: testUserID}, nil
-	}
-
-	// Save original RequiresAuthentication function and restore it after the test
-	originalFunc := RequiresAuthentication
-	RequiresAuthentication = mockAuthFunc
-	defer func() { RequiresAuthentication = originalFunc }()
+	mockUser := &clerk.User{ID: testUserID}
 
 	// Create test pantry for update
 	updatePantry := models.Pantry{
@@ -141,8 +128,9 @@ func TestUpdatePantryHandler(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	// Set up context with mocked DB
+	// Set up context with mocked DB and authenticated user
 	ctx := context.WithValue(req.Context(), "db", sqlxDB)
+	ctx = context.WithValue(ctx, "user", mockUser)
 	req = req.WithContext(ctx)
 
 	// Call the handler
@@ -171,14 +159,7 @@ func TestCreatePantryHandler(t *testing.T) {
 
 	// Setup mock authentication
 	testUserID := "test-user-id"
-	mockAuthFunc := func(r *http.Request) (*clerk.User, error) {
-		return &clerk.User{ID: testUserID}, nil
-	}
-
-	// Save original RequiresAuthentication function and restore it after the test
-	originalFunc := RequiresAuthentication
-	RequiresAuthentication = mockAuthFunc
-	defer func() { RequiresAuthentication = originalFunc }()
+	mockUser := &clerk.User{ID: testUserID}
 
 	// Create test pantry
 	newPantry := models.Pantry{
@@ -236,8 +217,9 @@ func TestCreatePantryHandler(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	// Set up context with mocked DB
+	// Set up context with mocked DB and authenticated user
 	ctx := context.WithValue(req.Context(), "db", sqlxDB)
+	ctx = context.WithValue(ctx, "user", mockUser)
 	req = req.WithContext(ctx)
 
 	// Call the handler
@@ -266,14 +248,7 @@ func TestDeletePantryHandler(t *testing.T) {
 
 	// Setup mock authentication
 	testUserID := "test-user-id"
-	mockAuthFunc := func(r *http.Request) (*clerk.User, error) {
-		return &clerk.User{ID: testUserID}, nil
-	}
-
-	// Save original RequiresAuthentication function and restore it after the test
-	originalFunc := RequiresAuthentication
-	RequiresAuthentication = mockAuthFunc
-	defer func() { RequiresAuthentication = originalFunc }()
+	mockUser := &clerk.User{ID: testUserID}
 
 	// Mock for GetPantry inside DeletePantry
 	rows := sqlmock.NewRows([]string{"id", "user_id"}).AddRow(1, testUserID)
@@ -298,8 +273,9 @@ func TestDeletePantryHandler(t *testing.T) {
 	req := httptest.NewRequest("DELETE", "/api/pantry", nil)
 	rec := httptest.NewRecorder()
 
-	// Set up context with mocked DB
+	// Set up context with mocked DB and authenticated user
 	ctx := context.WithValue(req.Context(), "db", sqlxDB)
+	ctx = context.WithValue(ctx, "user", mockUser)
 	req = req.WithContext(ctx)
 
 	// Call the handler
