@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/clerk/clerk-sdk-go/v2"
 	"github.com/jmoiron/sqlx"
 	"github.com/lawn-chair/mealplan/models"
 )
@@ -22,12 +23,7 @@ func filter[T any](ss *[]T, test func(T) bool) *[]T {
 
 func GetShoppingList(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
-
-	user, err := RequiresAuthentication(r)
-	if err != nil {
-		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
-		return
-	}
+	user := r.Context().Value("user").(*clerk.User)
 
 	plan, err := models.GetNextPlan(db, user.ID)
 	if err != nil {
@@ -58,12 +54,7 @@ func GetShoppingList(w http.ResponseWriter, r *http.Request) {
 
 func UpdateShoppingList(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
-
-	user, err := RequiresAuthentication(r)
-	if err != nil {
-		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
-		return
-	}
+	user := r.Context().Value("user").(*clerk.User)
 
 	var list models.ShoppingList
 	if err := json.NewDecoder(r.Body).Decode(&list); err != nil {

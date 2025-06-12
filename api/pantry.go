@@ -4,17 +4,14 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/clerk/clerk-sdk-go/v2"
 	"github.com/jmoiron/sqlx"
 	"github.com/lawn-chair/mealplan/models"
 )
 
 func GetPantryHandler(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
-	user, err := RequiresAuthentication(r)
-	if err != nil {
-		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
-		return
-	}
+	user := r.Context().Value("user").(*clerk.User)
 
 	pantry, err := models.GetPantry(db, user.ID)
 	if err != nil {
@@ -27,11 +24,7 @@ func GetPantryHandler(w http.ResponseWriter, r *http.Request) {
 
 func UpdatePantryHandler(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
-	user, err := RequiresAuthentication(r)
-	if err != nil {
-		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
-		return
-	}
+	user := r.Context().Value("user").(*clerk.User)
 
 	data := new(models.Pantry)
 	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
@@ -50,13 +43,9 @@ func UpdatePantryHandler(w http.ResponseWriter, r *http.Request) {
 
 func DeletePantryHandler(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
-	user, err := RequiresAuthentication(r)
-	if err != nil {
-		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
-		return
-	}
+	user := r.Context().Value("user").(*clerk.User)
 
-	err = models.DeletePantry(db, user.ID)
+	err := models.DeletePantry(db, user.ID)
 	if err != nil {
 		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -67,11 +56,7 @@ func DeletePantryHandler(w http.ResponseWriter, r *http.Request) {
 
 func CreatePantryHandler(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
-	user, err := RequiresAuthentication(r)
-	if err != nil {
-		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
-		return
-	}
+	user := r.Context().Value("user").(*clerk.User)
 
 	data := new(models.Pantry)
 	if err := json.NewDecoder(r.Body).Decode(data); err != nil {

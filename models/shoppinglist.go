@@ -34,7 +34,7 @@ func (s Status) Value() (driver.Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return b, nil // Changed from string(b) to b
+	return b, nil
 }
 
 type ShoppingStatus struct {

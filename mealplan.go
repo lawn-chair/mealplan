@@ -60,6 +60,7 @@ func main() {
 		apir.Use(DbCtx(db))
 
 		apir.Route("/pantry", func(pantry chi.Router) {
+			pantry.Use(AuthCtx)
 			pantry.Get("/", api.GetPantryHandler)
 			pantry.Put("/", api.UpdatePantryHandler)
 			pantry.Delete("/", api.DeletePantryHandler)
@@ -100,8 +101,11 @@ func main() {
 			})
 		})
 
-		apir.Get("/shopping-list", api.GetShoppingList)
-		apir.Put("/shopping-list", api.UpdateShoppingList)
+		apir.Route("/shopping-list", func(shoppingList chi.Router) {
+			shoppingList.Use(AuthCtx)
+			shoppingList.Get("/", api.GetShoppingList)
+			shoppingList.Put("/", api.UpdateShoppingList)
+		})
 
 		apir.Post("/images", api.PostImageHandler)
 	})
@@ -131,6 +135,18 @@ func IdCtx(next http.Handler) http.Handler {
 			return
 		}
 		ctx := context.WithValue(r.Context(), "id", id)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func AuthCtx(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, err := api.RequiresAuthentication(r)
+		if err != nil {
+			api.ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
+			return
+		}
+		ctx := context.WithValue(r.Context(), "user", user)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
