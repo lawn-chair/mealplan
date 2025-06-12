@@ -100,6 +100,14 @@ const MealDetail: React.FC = () => {
           )}
           <div className="flex-grow">
             <h1 className="text-3xl lg:text-4xl font-bold mb-2 !mt-0">{meal.name}</h1>
+            {/* Tag display */}
+            {meal.tags && meal.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {meal.tags.map((tag) => (
+                  <span key={tag} className="badge badge-primary badge-sm">{tag}</span>
+                ))}
+              </div>
+            )}
             {meal.description && <p className="text-base-content/80 mb-6 prose">{meal.description}</p>}
             <div className="flex flex-wrap gap-2 mt-auto">
               <Link to={`/meals/${meal.slug}/edit`} className="btn btn-primary btn-outline">

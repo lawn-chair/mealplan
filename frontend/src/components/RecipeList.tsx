@@ -81,6 +81,7 @@ function RecipeList() {
               editLink={`/recipes/${recipe.slug}/edit`} // Uncomment if edit functionality is desired here
               imageAltText={recipe.name || 'Recipe image'}
               type="Recipe"
+              tags={recipe.tags}
             />
           );
         })}

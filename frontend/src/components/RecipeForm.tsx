@@ -18,6 +18,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { SortableStepItem, CommonStep } from './SortableStepItem'; // Import generic component
+import TagInput from './TagInput';
 
 // Define a type for the ingredient part of the form
 interface RecipeIngredientForm {
@@ -48,6 +49,7 @@ function RecipeForm({ isEditMode = false }: RecipeFormProps) { // Default to fal
   const [currentRecipeId, setCurrentRecipeId] = useState<number | null>(null); 
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null); 
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null); 
+  const [tags, setTags] = useState<string[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -84,6 +86,7 @@ function RecipeForm({ isEditMode = false }: RecipeFormProps) { // Default to fal
           if (recipe.image && recipe.image.Valid && recipe.image.String) {
             setCurrentImageUrl(recipe.image.String); 
           }
+          setTags(recipe.tags || []);
         })
         .catch((err: any) => {
           console.error("Failed to fetch recipe for editing:", err);
@@ -100,6 +103,7 @@ function RecipeForm({ isEditMode = false }: RecipeFormProps) { // Default to fal
       setCurrentImageUrl(null);
       setCurrentRecipeId(null);
       setError(null);
+      setTags([]);
     }
   }, [isEditMode, recipeSlug]); // Depend on isEditMode and recipeSlug
 
@@ -248,6 +252,7 @@ function RecipeForm({ isEditMode = false }: RecipeFormProps) { // Default to fal
       ingredients: finalIngredients,
       steps: cleanSteps,
       image: finalImageUrl ? { Valid: true, String: finalImageUrl } : { Valid: false, String: '' },
+      tags: tags.length > 0 ? tags : undefined,
     };
 
     try {
@@ -293,6 +298,9 @@ function RecipeForm({ isEditMode = false }: RecipeFormProps) { // Default to fal
       )}
       <form onSubmit={handleSubmit} className="space-y-6 bg-base-100 p-6 sm:p-8 rounded-lg shadow-xl">
         
+        {/* TagInput for tags */}
+        <TagInput tags={tags} setTags={setTags} label="Tags" placeholder="Add a tag and press Enter" />
+
         <div className="form-control">
           <label htmlFor="recipeName" className="label">
             <span className="label-text text-lg">Recipe Name</span>

@@ -17,6 +17,7 @@ import {
 } from '@dnd-kit/sortable';
 import { getMealBySlug, getRecipeBySlug, createMeal, updateMeal, Meal, MealIngredient, MealStep, uploadImage, Recipe } from '../api';
 import { SortableStepItem } from './SortableStepItem';
+import TagInput from './TagInput';
 
 interface MealFormProps {
   isEditMode?: boolean;
@@ -44,6 +45,7 @@ const MealForm: React.FC<MealFormProps> = ({ isEditMode }) => {
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [tags, setTags] = useState<string[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -69,6 +71,7 @@ const MealForm: React.FC<MealFormProps> = ({ isEditMode }) => {
             recipes: fetchedMeal.recipes || [],
             image: fetchedMeal.image || { Valid: false, String: '' },
           });
+          setTags(fetchedMeal.tags || []);
           if (fetchedMeal.image && fetchedMeal.image.Valid && fetchedMeal.image.String) {
             setCurrentImageUrl(fetchedMeal.image.String);
             setImagePreview(fetchedMeal.image.String);
@@ -89,13 +92,14 @@ const MealForm: React.FC<MealFormProps> = ({ isEditMode }) => {
         name: '',
         description: '',
         ingredients: [],
-        steps: [{ id: `new-step-${Date.now()}`, order: 1, text: '' }], // Start with one step with a defined ID
+        steps: [{ id: `new-step-${Date.now()}`, order: 1, text: '' }],
         recipes: [],
         image: { Valid: false, String: '' },
       });
       setSelectedImageFile(null);
       setCurrentImageUrl(null);
       setImagePreview(null);
+      setTags([]);
     }
   }, [mealSlug, isEditMode]);
 
@@ -248,6 +252,7 @@ const MealForm: React.FC<MealFormProps> = ({ isEditMode }) => {
       steps: processedSteps,
       recipes: meal.recipes.map(r => ({ recipe_id: r.recipe_id })),
       image: finalImage,
+      tags: tags.length > 0 ? tags : undefined,
     };
 
     try {
@@ -292,6 +297,9 @@ const MealForm: React.FC<MealFormProps> = ({ isEditMode }) => {
             <span>{error}</span>
           </div>
         )}
+
+        {/* TagInput for tags */}
+        <TagInput tags={tags} setTags={setTags} label="Tags" placeholder="Add a tag and press Enter" />
 
         {/* Name Field */}
         <div className="form-control">

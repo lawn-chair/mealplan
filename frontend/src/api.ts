@@ -39,6 +39,7 @@ export interface Recipe {
   image?: { Valid: boolean; String: string };
   ingredients: RecipeIngredient[]; // Use exported type
   steps: RecipeStep[]; // Use exported type
+  tags?: string[]; // Optional tags field
 }
 
 // Interfaces for Meal components
@@ -72,6 +73,7 @@ export interface Meal {
   ingredients: MealIngredient[];
   steps: MealStep[];
   recipes: MealRecipe[];
+  tags?: string[]; // Optional tags field
 }
 
 export interface Plan {
@@ -165,5 +167,7 @@ export const uploadImage = (formData: FormData): Promise<AxiosResponse<{ url: st
     'Content-Type': 'multipart/form-data',
   },
 });
+
+export const getTags = (): Promise<AxiosResponse<string[]>> => apiClient.get('/tags');
 
 export default apiClient;

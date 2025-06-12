@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/gosimple/slug"
 	"github.com/jmoiron/sqlx"
@@ -35,15 +36,24 @@ type Recipe struct {
 	Image       sql.NullString     `db:"image" json:"image"`
 	Ingredients []RecipeIngredient `json:"ingredients"`
 	Steps       []RecipeStep       `json:"steps"`
+	Tags        []string           `json:"tags"`
 }
 
 func GetRecipes(db *sqlx.DB) (*[]Recipe, error) {
-
 	recipes := []Recipe{}
 	err := db.Select(&recipes, "SELECT * FROM recipes")
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
+	}
+
+	// Load tags for each recipe
+	for i := range recipes {
+		tags := []string{}
+		err := db.Select(&tags, `SELECT t.name FROM tags t INNER JOIN recipe_tags rt ON t.id = rt.tag_id WHERE rt.recipe_id = $1`, recipes[i].ID)
+		if err == nil {
+			recipes[i].Tags = tags
+		}
 	}
 
 	return &recipes, nil
@@ -81,6 +91,12 @@ func GetRecipe(db *sqlx.DB, i int) (*Recipe, error) {
 		return nil, err
 	}
 
+	tags := []string{}
+	err = db.Select(&tags, `SELECT t.name FROM tags t INNER JOIN recipe_tags rt ON t.id = rt.tag_id WHERE rt.recipe_id = $1`, recipe.ID)
+	if err == nil {
+		recipe.Tags = tags
+	}
+
 	recipe.Ingredients = ingredients
 	recipe.Steps = steps
 
@@ -106,7 +122,6 @@ func UpdateRecipe(db *sqlx.DB, i int, r *Recipe) (*Recipe, error) {
 	}
 
 	_, err = tx.Exec("UPDATE recipes SET name=$1, description=$2, image=$3 WHERE id=$4", r.Name, r.Description, r.Image, i)
-
 	if err != nil {
 		tx.Rollback()
 		fmt.Println(err)
@@ -142,6 +157,37 @@ func UpdateRecipe(db *sqlx.DB, i int, r *Recipe) (*Recipe, error) {
 			tx.Rollback()
 			fmt.Println(err)
 			return nil, err
+		}
+	}
+
+	// Handle tags if present
+	if r.Tags != nil {
+		// Remove all existing tags for this recipe
+		_, err = tx.Exec("DELETE FROM recipe_tags WHERE recipe_id=$1", i)
+		if err != nil {
+			tx.Rollback()
+			fmt.Println(err)
+			return nil, err
+		}
+		for _, tag := range r.Tags {
+			tag = strings.ToLower(tag)
+			var tagID int
+			err = tx.Get(&tagID, "SELECT id FROM tags WHERE name=$1", tag)
+			if err != nil {
+				// Tag does not exist, insert it
+				err = tx.Get(&tagID, "INSERT INTO tags (name) VALUES ($1) RETURNING id", tag)
+				if err != nil {
+					tx.Rollback()
+					fmt.Println(err)
+					return nil, err
+				}
+			}
+			_, err = tx.Exec("INSERT INTO recipe_tags (recipe_id, tag_id) VALUES ($1, $2)", i, tagID)
+			if err != nil {
+				tx.Rollback()
+				fmt.Println(err)
+				return nil, err
+			}
 		}
 	}
 
@@ -199,6 +245,7 @@ func CreateRecipe(db *sqlx.DB, r *Recipe) (*Recipe, error) {
 		return nil, err
 	}
 
+	// Now update tags, ingredients, steps, etc.
 	return UpdateRecipe(db, id, r)
 }
 

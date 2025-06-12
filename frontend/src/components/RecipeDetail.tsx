@@ -78,6 +78,14 @@ function RecipeDetail() {
           )}
           <div className="flex-grow">
             <h1 className="text-4xl font-bold mb-2 !mt-0">{recipe.name}</h1>
+            {/* Tag display */}
+            {recipe.tags && recipe.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {recipe.tags.map((tag) => (
+                  <span key={tag} className="badge badge-primary badge-sm">{tag}</span>
+                ))}
+              </div>
+            )}
             {recipe.description && <p className="text-lg text-base-content opacity-80 mb-6">{recipe.description}</p>}
             {recipe && recipe.id && ( 
               <div className="mt-auto"> {/* Changed from marginTop: '20px' */}

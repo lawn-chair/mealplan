@@ -80,6 +80,7 @@ const MealList: React.FC = () => {
                 viewLink={`/meals/${meal.slug}`}
                 imageAltText={meal.name || 'Meal image'}
                 type="Meal"
+                tags={meal.tags}
               />
             );
           })}

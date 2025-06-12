@@ -11,6 +11,7 @@ interface DisplayCardProps {
   editLink?: string; // Optional: for an edit button
   imageAltText?: string;
   type?: 'Recipe' | 'Meal' | 'Item'; // Added 'Item' to match default
+  tags?: string[]; // Optional: tags to display as badges
 }
 
 const DisplayCard: React.FC<DisplayCardProps> = ({
@@ -21,7 +22,8 @@ const DisplayCard: React.FC<DisplayCardProps> = ({
   viewLink,
   editLink,
   imageAltText,
-  type = 'Item' // Default type
+  type = 'Item',
+  tags // <-- destructure tags from props
 }) => {
   const defaultImage = type === 'Recipe' ? '/recipe-blank.jpg' : '/meal-blank.jpg';
   const currentImageUrl = imageUrl || defaultImage;
@@ -47,6 +49,14 @@ const DisplayCard: React.FC<DisplayCardProps> = ({
             {title || `Untitled ${type}`}
           </Link>
         </h3>
+        {/* Tag display */}
+        {tags && tags.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {tags.map((tag: string) => (
+              <span key={tag} className="badge badge-primary badge-sm">{tag}</span>
+            ))}
+          </div>
+        )}
         {description && (
           <p className="text-sm text-gray-600 mb-4 h-20 overflow-hidden text-ellipsis" title={description}>
             {description.length > 120 ? `${description.substring(0, 117)}...` : description}

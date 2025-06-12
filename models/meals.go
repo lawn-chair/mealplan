@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/gosimple/slug"
 	"github.com/jmoiron/sqlx"
@@ -39,15 +40,24 @@ type Meal struct {
 	Ingredients []MealIngredient `json:"ingredients"`
 	Steps       []MealStep       `json:"steps"`
 	MealRecipes []MealRecipes    `json:"recipes"`
+	Tags        []string         `json:"tags"`
 }
 
 func GetMeals(db *sqlx.DB) (*[]Meal, error) {
-
 	meals := []Meal{}
 	err := db.Select(&meals, "SELECT * FROM meals")
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
+	}
+
+	// Load tags for each meal
+	for i := range meals {
+		tags := []string{}
+		err := db.Select(&tags, `SELECT t.name FROM tags t INNER JOIN meal_tags mt ON t.id = mt.tag_id WHERE mt.meal_id = $1`, meals[i].ID)
+		if err == nil {
+			meals[i].Tags = tags
+		}
 	}
 
 	return &meals, nil
@@ -119,6 +129,12 @@ func GetMeal(db *sqlx.DB, i int) (*Meal, error) {
 		return nil, err
 	}
 
+	tags := []string{}
+	err = db.Select(&tags, `SELECT t.name FROM tags t INNER JOIN meal_tags mt ON t.id = mt.tag_id WHERE mt.meal_id = $1`, meal.ID)
+	if err == nil {
+		meal.Tags = tags
+	}
+
 	meal.Ingredients = ingredients
 	meal.Steps = steps
 	meal.MealRecipes = recipes
@@ -173,8 +189,6 @@ func UpdateMeal(db *sqlx.DB, i int, meal *Meal) (*Meal, error) {
 		tx.Rollback()
 		return nil, err
 	}
-	fmt.Println(meal.MealRecipes)
-	fmt.Println(i)
 	for _, recipe := range meal.MealRecipes {
 		_, err = tx.Exec("INSERT INTO meal_recipes (meal_id, recipe_id) VALUES ($1, $2)", i, recipe.RecipeID)
 		if err != nil {
@@ -182,6 +196,32 @@ func UpdateMeal(db *sqlx.DB, i int, meal *Meal) (*Meal, error) {
 			fmt.Println(err)
 			fmt.Println(recipe)
 			return nil, err
+		}
+	}
+	// Handle tags if present
+	if meal.Tags != nil {
+		_, err = tx.Exec("DELETE FROM meal_tags WHERE meal_id=$1", i)
+		if err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+		for _, tag := range meal.Tags {
+			tag = strings.ToLower(tag)
+			var tagID int
+			err = tx.Get(&tagID, "SELECT id FROM tags WHERE name=$1", tag)
+			if err != nil {
+				// Tag does not exist, insert it
+				err = tx.Get(&tagID, "INSERT INTO tags (name) VALUES ($1) RETURNING id", tag)
+				if err != nil {
+					tx.Rollback()
+					return nil, err
+				}
+			}
+			_, err = tx.Exec("INSERT INTO meal_tags (meal_id, tag_id) VALUES ($1, $2)", i, tagID)
+			if err != nil {
+				tx.Rollback()
+				return nil, err
+			}
 		}
 	}
 
