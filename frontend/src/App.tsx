@@ -41,7 +41,10 @@ function App() {
       <header className="navbar bg-base-100 shadow-md">
         <div className="navbar-start">
           <div className="flex-1">
-            <Link to="/" className="btn btn-ghost normal-case text-xl">Yum!</Link>
+            <Link to="/" className="btn btn-ghost normal-case text-xl hover:bg-transparent focus:bg-transparent active:bg-transparent hover:text-inherit focus:text-inherit active:text-inherit">
+              <img src="/yum-scheduler-favicon.svg" alt="Yum!" className="h-12 w-auto" />
+              <span className="ml-2 text-primary">Yum!</span>
+            </Link>
           </div>
           <div className="flex-none">
             <ul className="menu menu-horizontal px-1">
