@@ -101,6 +101,7 @@ func main() {
 		})
 
 		apir.Get("/shopping-list", api.GetShoppingList)
+		apir.Put("/shopping-list", api.UpdateShoppingList)
 
 		apir.Post("/images", api.PostImageHandler)
 	})

@@ -195,13 +195,46 @@ components:
         - user_id
         - items
 
-    ShoppingList:
+    ShoppingListItem: # Schema for items in the shopping list
       type: object
       properties:
+        name:
+          type: string
+        amount:
+          type: string
+        checked:
+          type: boolean
+      required:
+        - name
+        - amount
+        - checked
+
+    ShoppingList: # Schema for GET response and PUT response
+      type: object
+      properties:
+        plan: # Changed from plan_id to full Plan object
+          $ref: '#/components/schemas/Plan'
         ingredients:
           type: array
           items:
-            $ref: '#/components/schemas/Ingredient'
+            $ref: '#/components/schemas/ShoppingListItem'
+      required:
+        - plan # Changed from plan_id
+        - ingredients
+
+    ShoppingListUpdatePayload: # New schema for PUT request body
+      type: object
+      properties:
+        plan_id: # Keep plan_id for the update payload, as we only need to identify the plan
+          type: integer
+          format: int64
+        ingredients:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShoppingListItem'
+      required:
+        - plan_id
+        - ingredients
 
 paths:
   /recipes:
@@ -1025,18 +1058,18 @@ paths:
 
   /shopping-list:
     get:
-      summary: Get shopping list
+      summary: Get the shopping list for the next plan
       security:
         - BearerAuth: []
       responses:
         '200':
-          description: Shopping list contents
+          description: Shopping list retrieved successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ShoppingList'
         '400':
-          description: Bad request - no next plan found
+          description: Bad request (e.g., no next plan found, error fetching pantry)
           content:
             application/json:
               schema:
@@ -1048,40 +1081,30 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '500':
-          description: Internal server error
+          description: Internal server error (e.g., error fetching shopping list from DB)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-
-  /images:
-    post:
-      summary: Upload an image
+    put:
+      summary: Update the shopping list (item checked status)
       security:
         - BearerAuth: []
       requestBody:
         required: true
         content:
-          multipart/form-data:
+          application/json:
             schema:
-              type: object
-              properties:
-                file:
-                  type: string
-                  format: binary
+              $ref: '#/components/schemas/ShoppingListUpdatePayload' # Changed to use the new payload schema
       responses:
-        '201':
-          description: Image uploaded
+        '200':
+          description: Shopping list updated successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  url:
-                    type: string
-                    format: uri
+                $ref: '#/components/schemas/ShoppingList' # Response remains the full ShoppingList
         '400':
-          description: Bad request - invalid file
+          description: Bad request (e.g., invalid request body)
           content:
             application/json:
               schema:
@@ -1093,8 +1116,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '500':
-          description: Internal server error
+          description: Internal server error (e.g., error updating shopping list in DB)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error' 
+                $ref: '#/components/schemas/Error'

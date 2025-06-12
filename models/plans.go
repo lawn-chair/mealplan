@@ -55,11 +55,6 @@ type Ingredient struct {
 	Amount string `db:"amount" json:"amount"`
 }
 
-type ShoppingList struct {
-	Plan        Plan         `json:"plan"`
-	Ingredients []Ingredient `json:"ingredients"`
-}
-
 func GetPlans(db *sqlx.DB) (*[]Plan, error) {
 	plans := []Plan{}
 	err := db.Select(&plans, "SELECT * FROM plans")
@@ -117,7 +112,11 @@ func GetPlan(db *sqlx.DB, id int) (*Plan, error) {
 }
 
 func ValidatePlan(p *Plan) error {
-	if p.StartDate.Before(time.Now()) || p.EndDate.Before(time.Now()) {
+	now := time.Now()
+	// Get the beginning of today (00:00:00)
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	if p.StartDate.Before(todayStart) || p.EndDate.Before(todayStart) {
 		return fmt.Errorf("Start date and end date must be in the future")
 	} else if p.StartDate.After(p.EndDate.Time) {
 		return fmt.Errorf("Start date must be before end date")
