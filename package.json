@@ -1,8 +1,0 @@
-{
-  "devDependencies": {
-    "msw": "^2.9.0"
-  },
-  "dependencies": {
-    "axios-cache-interceptor": "^1.8.0"
-  }
-}
