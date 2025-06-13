@@ -62,12 +62,7 @@ function App() {
         </div>
         <div className="navbar-end">
           <SignedIn>
-            <div className="dropdown dropdown-end">
-              <label tabIndex={0} className="btn btn-ghost btn-circle avatar">
-                <UserButton afterSignOutUrl="/sign-in" />
-              </label>
-              {/* UserButton already provides its own dropdown, if needed customize further or wrap appropriately */}
-            </div>
+            <UserButton afterSignOutUrl="/sign-in" />
           </SignedIn>
           <SignedOut>
             <Link to="/sign-in" className="btn btn-ghost">Sign In</Link>
