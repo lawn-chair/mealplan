@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getMealBySlug, deleteMeal, Meal, getUpcomingPlans, Plan } from '../api';
+import { getMealBySlug, deleteMeal, Meal } from '../api';
 import AddToPlanModal from './AddToPlanModal';
 
 const MealDetail: React.FC = () => {
@@ -9,7 +9,6 @@ const MealDetail: React.FC = () => {
   const [meal, setMeal] = useState<Meal | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [plans, setPlans] = useState<Plan[]>([]);
   const [showAddToPlan, setShowAddToPlan] = useState(false);
 
   useEffect(() => {
@@ -35,9 +34,6 @@ const MealDetail: React.FC = () => {
     fetchMeal();
   }, [mealSlug]);
 
-  useEffect(() => {
-    getUpcomingPlans().then(res => setPlans(res.data)).catch(() => setPlans([]));
-  }, [mealSlug]);
 
   const handleDelete = async () => {
     if (meal && meal.id) {
