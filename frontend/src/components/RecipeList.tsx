@@ -7,6 +7,7 @@ function RecipeList() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState<string>("");
 
   useEffect(() => {
     fetchRecipes();
@@ -24,6 +25,16 @@ function RecipeList() {
     }
     setIsLoading(false);
   };
+
+  // Filter recipes by search (name, description, or tags)
+  const filteredRecipes = recipes.filter((recipe) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    const nameMatch = recipe.name?.toLowerCase().includes(q);
+    const descMatch = recipe.description?.toLowerCase().includes(q);
+    const tagMatch = recipe.tags?.some(tag => tag.toLowerCase().includes(q));
+    return nameMatch || descMatch || tagMatch;
+  });
 
   if (isLoading) {
     return (
@@ -45,9 +56,19 @@ function RecipeList() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
         <h2 className="text-4xl font-bold tracking-tight">Recipes</h2>
-        <Link to="/recipes/new" className="btn btn-primary btn-md shadow-md">
+        <div className="flex-1 flex justify-end">
+          <input
+            type="text"
+            className="input input-bordered w-full max-w-xs"
+            placeholder="Search recipes..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            aria-label="Search recipes"
+          />
+        </div>
+        <Link to="/recipes/new" className="btn btn-primary btn-md shadow-md ml-0 sm:ml-4">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
           </svg>
@@ -55,7 +76,7 @@ function RecipeList() {
         </Link>
       </div>
 
-      {recipes.length === 0 && (
+      {filteredRecipes.length === 0 && (
         <div className="text-center py-10">
           <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -67,9 +88,8 @@ function RecipeList() {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {recipes.map((recipe) => {
+        {filteredRecipes.map((recipe) => {
           const imageUrl = (recipe.image?.Valid ? recipe.image.String : undefined);
-          
           return (
             <DisplayCard
               key={recipe.id}
@@ -78,10 +98,18 @@ function RecipeList() {
               title={recipe.name || 'Untitled Recipe'}
               description={recipe.description}
               viewLink={`/recipes/${recipe.slug}`}
-              editLink={`/recipes/${recipe.slug}/edit`} // Uncomment if edit functionality is desired here
+              editLink={`/recipes/${recipe.slug}/edit`}
               imageAltText={recipe.name || 'Recipe image'}
               type="Recipe"
               tags={recipe.tags}
+              onTagClick={(tag: string) => {
+                // If tag is not already in search, add it (append with space if search is not empty)
+                const tagLower = tag.toLowerCase();
+                const searchLower = search.toLowerCase();
+                if (!searchLower.split(/\s+/).includes(tagLower)) {
+                  setSearch(search ? search + ' ' + tag : tag);
+                }
+              }}
             />
           );
         })}

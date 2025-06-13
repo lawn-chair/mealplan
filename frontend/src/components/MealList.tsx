@@ -7,6 +7,7 @@ const MealList: React.FC = () => {
   const [meals, setMeals] = useState<Meal[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState<string>("");
 
   useEffect(() => {
     const fetchMeals = async () => {
@@ -22,9 +23,18 @@ const MealList: React.FC = () => {
         setLoading(false);
       }
     };
-
     fetchMeals();
   }, []);
+
+  // Filter meals by search (name, description, or tags)
+  const filteredMeals = meals.filter((meal) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    const nameMatch = meal.name?.toLowerCase().includes(q);
+    const descMatch = meal.description?.toLowerCase().includes(q);
+    const tagMatch = meal.tags?.some(tag => tag.toLowerCase().includes(q));
+    return nameMatch || descMatch || tagMatch;
+  });
 
   if (loading) {
     return (
@@ -46,9 +56,19 @@ const MealList: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
         <h2 className="text-4xl font-bold tracking-tight">Meals</h2>
-        <Link to="/meals/new" className="btn btn-primary btn-md shadow-md">
+        <div className="flex-1 flex justify-end">
+          <input
+            type="text"
+            className="input input-bordered w-full max-w-xs"
+            placeholder="Search meals..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            aria-label="Search meals"
+          />
+        </div>
+        <Link to="/meals/new" className="btn btn-primary btn-md shadow-md ml-0 sm:ml-4">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
           </svg>
@@ -56,7 +76,7 @@ const MealList: React.FC = () => {
         </Link>
       </div>
 
-      {meals.length === 0 ? (
+      {filteredMeals.length === 0 ? (
         <div className="text-center py-10">
           <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -66,7 +86,7 @@ const MealList: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {meals.map((meal) => {
+          {filteredMeals.map((meal) => {
             const imageUrl = typeof meal.image === 'string' 
               ? meal.image 
               : (meal.image?.Valid ? meal.image.String : undefined);
@@ -81,6 +101,13 @@ const MealList: React.FC = () => {
                 imageAltText={meal.name || 'Meal image'}
                 type="Meal"
                 tags={meal.tags}
+                onTagClick={(tag: string) => {
+                  const tagLower = tag.toLowerCase();
+                  const searchLower = search.toLowerCase();
+                  if (!searchLower.split(/\s+/).includes(tagLower)) {
+                    setSearch(search ? search + ' ' + tag : tag);
+                  }
+                }}
               />
             );
           })}

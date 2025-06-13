@@ -12,6 +12,7 @@ interface DisplayCardProps {
   imageAltText?: string;
   type?: 'Recipe' | 'Meal' | 'Item'; // Added 'Item' to match default
   tags?: string[]; // Optional: tags to display as badges
+  onTagClick?: (tag: string) => void; // Optional: callback for tag click
 }
 
 const DisplayCard: React.FC<DisplayCardProps> = ({
@@ -23,7 +24,8 @@ const DisplayCard: React.FC<DisplayCardProps> = ({
   editLink,
   imageAltText,
   type = 'Item',
-  tags // <-- destructure tags from props
+  tags, // <-- destructure tags from props
+  onTagClick
 }) => {
   const defaultImage = type === 'Recipe' ? '/recipe-blank.jpg' : '/meal-blank.jpg';
   const currentImageUrl = imageUrl || defaultImage;
@@ -53,7 +55,20 @@ const DisplayCard: React.FC<DisplayCardProps> = ({
         {tags && tags.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
             {tags.map((tag: string) => (
-              <span key={tag} className="badge badge-primary badge-sm">{tag}</span>
+              onTagClick ? (
+                <button
+                  key={tag}
+                  className="badge badge-primary badge-sm cursor-pointer hover:badge-accent transition-colors"
+                  type="button"
+                  onClick={() => onTagClick(tag)}
+                  tabIndex={0}
+                  aria-label={`Filter by tag ${tag}`}
+                >
+                  {tag}
+                </button>
+              ) : (
+                <span key={tag} className="badge badge-primary badge-sm">{tag}</span>
+              )
             ))}
           </div>
         )}
