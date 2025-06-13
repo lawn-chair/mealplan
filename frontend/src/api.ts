@@ -1,4 +1,5 @@
 import axios, { InternalAxiosRequestConfig, AxiosResponse } from 'axios';
+import { setupCache } from 'axios-cache-interceptor';
 
 // Type for the getToken function from Clerk's useAuth
 export type GetTokenFn = () => Promise<string | null>;
@@ -106,12 +107,12 @@ export interface ShoppingListUpdatePayload {
   ingredients: ShoppingListItem[];
 }
 
-const apiClient = axios.create({
+const apiClient = setupCache(axios.create({
   baseURL: 'http://localhost:8080/api',
   headers: {
     'Content-Type': 'application/json',
   },
-});
+}));
 
 // Updated request interceptor to use the provided getToken function
 apiClient.interceptors.request.use(
@@ -129,22 +130,23 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Define types for API responses
-export const getRecipes = (): Promise<AxiosResponse<Recipe[]>> => apiClient.get('/recipes');
-export const getRecipeById = (id: number): Promise<AxiosResponse<Recipe>> => apiClient.get(`/recipes/${id}`);
-// Ensure getRecipeBySlug uses a query parameter as per backend requirement
-// Adjusted return type to Recipe[] as per OpenAPI spec for /recipes?slug=...
-export const getRecipeBySlug = (slug: string): Promise<AxiosResponse<Recipe>> => apiClient.get(`/recipes?slug=${slug}`);
-export const createRecipe = (recipeData: Omit<Recipe, 'id' | 'slug'>): Promise<AxiosResponse<Recipe>> => apiClient.post('/recipes', recipeData);
-export const updateRecipe = (id: number, recipeData: Partial<Omit<Recipe, 'id' | 'slug'>>): Promise<AxiosResponse<Recipe>> => apiClient.put(`/recipes/${id}`, recipeData);
-export const deleteRecipe = (id: number): Promise<AxiosResponse<void>> => apiClient.delete(`/recipes/${id}`);
+// Recipes with cache (using custom cache IDs for easy invalidation)
+const RECIPES_LIST_ID = 'recipes-list';
+const MEALS_LIST_ID = 'meals-list';
 
-export const getMeals = (): Promise<AxiosResponse<Meal[]>> => apiClient.get('/meals');
-export const getMealById = (id: number): Promise<AxiosResponse<Meal>> => apiClient.get(`/meals/${id}`);
-export const createMeal = (mealData: Omit<Meal, 'id' | 'slug'>): Promise<AxiosResponse<Meal>> => apiClient.post('/meals', mealData);
-export const updateMeal = (id: number, mealData: Partial<Omit<Meal, 'id' | 'slug'>>): Promise<AxiosResponse<Meal>> => apiClient.put(`/meals/${id}`, mealData);
-export const deleteMeal = (id: number): Promise<AxiosResponse<void>> => apiClient.delete(`/meals/${id}`);
-export const getMealBySlug = (slug: string): Promise<AxiosResponse<Meal>> => apiClient.get(`/meals?slug=${slug}`);
+export const getRecipes = () => apiClient.get<Recipe[]>('/recipes', { id: RECIPES_LIST_ID, cache: {} });
+export const getRecipeById = (id: number) => apiClient.get<Recipe>(`/recipes/${id}`, { cache: {} });
+export const getRecipeBySlug = (slug: string) => apiClient.get<Recipe>(`/recipes?slug=${slug}`, { cache: {} });
+export const createRecipe = (recipeData: Omit<Recipe, 'id' | 'slug'>) => apiClient.post('/recipes', recipeData, { cache: { update: { [RECIPES_LIST_ID]: 'delete' } } });
+export const updateRecipe = (id: number, recipeData: Partial<Omit<Recipe, 'id' | 'slug'>>) => apiClient.put(`/recipes/${id}`, recipeData, { cache: { update: { [RECIPES_LIST_ID]: 'delete' } } });
+export const deleteRecipe = (id: number) => apiClient.delete(`/recipes/${id}`, { cache: { update: { [RECIPES_LIST_ID]: 'delete' } } });
+
+export const getMeals = () => apiClient.get<Meal[]>('/meals', { id: MEALS_LIST_ID, cache: {} });
+export const getMealById = (id: number) => apiClient.get<Meal>(`/meals/${id}`, { cache: {} });
+export const getMealBySlug = (slug: string) => apiClient.get<Meal>(`/meals?slug=${slug}`, { cache: {} });
+export const createMeal = (mealData: Omit<Meal, 'id' | 'slug'>) => apiClient.post('/meals', mealData, { cache: { update: { [MEALS_LIST_ID]: 'delete' } } });
+export const updateMeal = (id: number, mealData: Partial<Omit<Meal, 'id' | 'slug'>>) => apiClient.put(`/meals/${id}`, mealData, { cache: { update: { [MEALS_LIST_ID]: 'delete' } } });
+export const deleteMeal = (id: number) => apiClient.delete(`/meals/${id}`, { cache: { update: { [MEALS_LIST_ID]: 'delete' } } });
 
 export const getPlans = (params?: { last?: boolean; next?: boolean; future?: boolean }): Promise<AxiosResponse<Plan[]>> => apiClient.get('/plans', { params });
 export const getUpcomingPlans = (): Promise<AxiosResponse<Plan[]>> => apiClient.get('/plans?future=true');
