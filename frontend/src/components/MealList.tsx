@@ -2,12 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getMeals, Meal } from '../api';
 import DisplayCard from './DisplayCard';
+import AddToPlanModal from './AddToPlanModal';
 
 const MealList: React.FC = () => {
   const [meals, setMeals] = useState<Meal[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState<string>("");
+  const [showAddToPlan, setShowAddToPlan] = useState<{ mealId: number | null, open: boolean }>({ mealId: null, open: false });
 
   useEffect(() => {
     const fetchMeals = async () => {
@@ -108,10 +110,19 @@ const MealList: React.FC = () => {
                     setSearch(search ? search + ' ' + tag : tag);
                   }
                 }}
+                onAddToPlan={() => setShowAddToPlan({ mealId: meal.id!, open: true })}
               />
             );
           })}
         </div>
+      )}
+      {/* AddToPlanModal for the selected meal */}
+      {showAddToPlan.open && showAddToPlan.mealId !== null && (
+        <AddToPlanModal
+          mealId={showAddToPlan.mealId}
+          open={showAddToPlan.open}
+          onClose={() => setShowAddToPlan({ mealId: null, open: false })}
+        />
       )}
     </div>
   );

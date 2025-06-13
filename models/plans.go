@@ -156,9 +156,6 @@ func CreatePlan(db *sqlx.DB, p *Plan) (*Plan, error) {
 }
 
 func UpdatePlan(db *sqlx.DB, id int, p *Plan) (*Plan, error) {
-	if err := ValidatePlan(p); err != nil {
-		return nil, err
-	}
 
 	tx, err := db.Beginx()
 	if err != nil {
@@ -234,10 +231,20 @@ func GetPlanIngredients(db *sqlx.DB, id int) (*[]Ingredient, error) {
 
 func GetFuturePlans(db *sqlx.DB) (*[]Plan, error) {
 	plans := []Plan{}
-	err := db.Select(&plans, "SELECT * FROM plans WHERE end_date > NOW() ORDER BY start_date ASC")
+	plan_ids := []int{}
+	err := db.Select(&plan_ids, "SELECT id FROM plans WHERE end_date > NOW() ORDER BY start_date ASC")
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
+	}
+
+	for _, id := range plan_ids {
+		plan, err := GetPlan(db, id)
+		if err != nil {
+			fmt.Printf("Error fetching plan with ID %d: %v\n", id, err)
+			continue // Skip this plan if there's an error
+		}
+		plans = append(plans, *plan)
 	}
 
 	return &plans, nil

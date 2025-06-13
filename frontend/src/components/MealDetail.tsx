@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getMealBySlug, deleteMeal, Meal } from '../api';
+import { getMealBySlug, deleteMeal, Meal, getUpcomingPlans, Plan } from '../api';
+import AddToPlanModal from './AddToPlanModal';
 
 const MealDetail: React.FC = () => {
   const { slug: mealSlug } = useParams<{ slug: string }>();
@@ -8,6 +9,8 @@ const MealDetail: React.FC = () => {
   const [meal, setMeal] = useState<Meal | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [showAddToPlan, setShowAddToPlan] = useState(false);
 
   useEffect(() => {
     const fetchMeal = async () => {
@@ -30,6 +33,10 @@ const MealDetail: React.FC = () => {
     };
 
     fetchMeal();
+  }, [mealSlug]);
+
+  useEffect(() => {
+    getUpcomingPlans().then(res => setPlans(res.data)).catch(() => setPlans([]));
   }, [mealSlug]);
 
   const handleDelete = async () => {
@@ -119,7 +126,21 @@ const MealDetail: React.FC = () => {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>}
                 Delete Meal
               </button>
+              <button
+                className="btn btn-primary btn-outline"
+                onClick={() => setShowAddToPlan(true)}
+                type="button"
+              >
+                + Add to Plan
+              </button>
             </div>
+            {meal.id !== undefined && (
+              <AddToPlanModal
+                mealId={meal.id}
+                open={showAddToPlan}
+                onClose={() => setShowAddToPlan(false)}
+              />
+            )}
           </div>
         </div>
 

@@ -74,9 +74,7 @@ const PlanList: React.FC = () => {
               title={`Plan: ${new Date(plan.start_date).toLocaleDateString()} - ${new Date(plan.end_date).toLocaleDateString()}`}
               description={`Contains ${plan.meals?.length || 0} meal(s).`} // Adjust if plan.meals is not directly available or needs fetching
               viewLink={`/plans/${plan.id}`}
-              // editLink={`/plans/${plan.id}/edit`} // Add if edit functionality is separate from view
               type="Item" // Using 'Item' as a generic type for now
-              // imageUrl={undefined} // Plans might not have images, or you can assign a generic one
             />
           ))}
         </div>

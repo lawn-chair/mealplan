@@ -89,7 +89,9 @@ function RecipeList() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredRecipes.map((recipe) => {
-          const imageUrl = (recipe.image?.Valid ? recipe.image.String : undefined);
+          const imageUrl = typeof recipe.image === 'string'
+            ? recipe.image
+            : (recipe.image?.Valid ? recipe.image.String : '/recipe-blank.jpg');
           return (
             <DisplayCard
               key={recipe.id}
@@ -98,7 +100,6 @@ function RecipeList() {
               title={recipe.name || 'Untitled Recipe'}
               description={recipe.description}
               viewLink={`/recipes/${recipe.slug}`}
-              editLink={`/recipes/${recipe.slug}/edit`}
               imageAltText={recipe.name || 'Recipe image'}
               type="Recipe"
               tags={recipe.tags}

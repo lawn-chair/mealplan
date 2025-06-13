@@ -133,6 +133,7 @@ apiClient.interceptors.request.use(
 // Recipes with cache (using custom cache IDs for easy invalidation)
 const RECIPES_LIST_ID = 'recipes-list';
 const MEALS_LIST_ID = 'meals-list';
+const PLANS_LIST_ID = 'plans-list';
 
 export const getRecipes = () => apiClient.get<Recipe[]>('/recipes', { id: RECIPES_LIST_ID, cache: {} });
 export const getRecipeById = (id: number) => apiClient.get<Recipe>(`/recipes/${id}`, { cache: {} });
@@ -148,12 +149,24 @@ export const createMeal = (mealData: Omit<Meal, 'id' | 'slug'>) => apiClient.pos
 export const updateMeal = (id: number, mealData: Partial<Omit<Meal, 'id' | 'slug'>>) => apiClient.put(`/meals/${id}`, mealData, { cache: { update: { [MEALS_LIST_ID]: 'delete' } } });
 export const deleteMeal = (id: number) => apiClient.delete(`/meals/${id}`, { cache: { update: { [MEALS_LIST_ID]: 'delete' } } });
 
-export const getPlans = (params?: { last?: boolean; next?: boolean; future?: boolean }): Promise<AxiosResponse<Plan[]>> => apiClient.get('/plans', { params });
-export const getUpcomingPlans = (): Promise<AxiosResponse<Plan[]>> => apiClient.get('/plans?future=true');
-export const getPlanById = (id: number): Promise<AxiosResponse<Plan>> => apiClient.get(`/plans/${id}`);
-export const createPlan = (planData: Omit<Plan, 'id' | 'user_id'>): Promise<AxiosResponse<Plan>> => apiClient.post('/plans', planData);
-export const updatePlan = (id: number, planData: Partial<Omit<Plan, 'id' | 'user_id'>>): Promise<AxiosResponse<Plan>> => apiClient.put(`/plans/${id}`, planData);
-export const deletePlan = (id: number): Promise<AxiosResponse<void>> => apiClient.delete(`/plans/${id}`);
+export const getPlans = (params?: { last?: boolean; next?: boolean; future?: boolean }): Promise<AxiosResponse<Plan[]>> =>
+  apiClient.get('/plans', { id: PLANS_LIST_ID, params, cache: {} });
+
+export const getUpcomingPlans = (): Promise<AxiosResponse<Plan[]>> =>
+  apiClient.get('/plans?future=true', { id: PLANS_LIST_ID, cache: {} });
+
+export const getPlanById = (id: number): Promise<AxiosResponse<Plan>> =>
+  apiClient.get(`/plans/${id}`, { cache: {} });
+
+export const createPlan = (planData: Omit<Plan, 'id' | 'user_id'>): Promise<AxiosResponse<Plan>> =>
+  apiClient.post('/plans', planData, { cache: { update: { [PLANS_LIST_ID]: 'delete' } } });
+
+export const updatePlan = (id: number, planData: Partial<Omit<Plan, 'id' | 'user_id'>>): Promise<AxiosResponse<Plan>> =>
+  apiClient.put(`/plans/${id}`, planData, { cache: { update: { [PLANS_LIST_ID]: 'delete' } } });
+
+export const deletePlan = (id: number): Promise<AxiosResponse<void>> =>
+  apiClient.delete(`/plans/${id}`, { cache: { update: { [PLANS_LIST_ID]: 'delete' } } });
+
 export const getPlanIngredients = (id: number): Promise<AxiosResponse<Array<{name: string, amount: string}>>> => apiClient.get(`/plans/${id}/ingredients`);
 
 export const getPantry = (): Promise<AxiosResponse<Pantry>> => apiClient.get('/pantry');
