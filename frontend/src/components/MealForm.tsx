@@ -15,7 +15,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { getMealBySlug, getRecipeBySlug, createMeal, updateMeal, Meal, MealIngredient, MealStep, uploadImage, Recipe } from '../api';
+import { getMealBySlug, createMeal, updateMeal, Meal, MealIngredient, MealStep, uploadImage, Recipe, getRecipes } from '../api';
 import { SortableStepItem } from './SortableStepItem';
 import TagInput from './TagInput';
 
@@ -41,11 +41,13 @@ const MealForm: React.FC<MealFormProps> = ({ isEditMode }) => {
   });
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [recipeSlugInput, setRecipeSlugInput] = useState('');
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [tags, setTags] = useState<string[]>([]);
+  const [allRecipes, setAllRecipes] = useState<Recipe[]>([]);
+  const [recipeSearch, setRecipeSearch] = useState('');
+  const [showRecipePicker, setShowRecipePicker] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -101,6 +103,9 @@ const MealForm: React.FC<MealFormProps> = ({ isEditMode }) => {
       setImagePreview(null);
       setTags([]);
     }
+
+    // Fetch all recipes for picker
+    getRecipes().then(res => setAllRecipes(res.data || []));
   }, [mealSlug, isEditMode]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -153,30 +158,6 @@ const MealForm: React.FC<MealFormProps> = ({ isEditMode }) => {
     });
   };
 
-  const handleAddRecipeBySlug = async () => {
-    if (!recipeSlugInput) return;
-    try {
-      setLoading(true);
-      const response = await getRecipeBySlug(recipeSlugInput);
-      const foundRecipe: Recipe = response.data;
-      if (foundRecipe && foundRecipe.id) {
-        if (!meal.recipes.find(r => r.recipe_id === foundRecipe.id)) {
-          setMeal(prevMeal => ({
-            ...prevMeal,
-            recipes: [...prevMeal.recipes, { recipe_id: foundRecipe.id!, recipe_slug: foundRecipe.slug, recipe_name: foundRecipe.name }]
-          }));
-        }
-        setRecipeSlugInput('');
-      } else {
-        setError('Recipe not found or has no ID.');
-      }
-    } catch (err) {
-      setError('Failed to fetch recipe by slug. Make sure the slug is correct.');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const removeRecipe = (recipeIdToRemove: number) => {
     setMeal(prevMeal => ({
@@ -409,40 +390,99 @@ const MealForm: React.FC<MealFormProps> = ({ isEditMode }) => {
 
         {/* Recipes Section */}
         <div className="space-y-4 p-4 border border-base-300 rounded-lg">
-            <h3 className="text-lg font-semibold">Associated Recipes</h3>
-            <div className="form-control">
-                <label htmlFor="recipeSlugInput" className="label">
-                    <span className="label-text">Add Recipe by Slug</span>
-                </label>
-                <div className="join w-full">
-                    <input 
-                        type="text" 
-                        id="recipeSlugInput"
-                        placeholder="Enter recipe slug (e.g., my-favorite-pasta)"
-                        value={recipeSlugInput}
-                        onChange={(e) => setRecipeSlugInput(e.target.value)}
-                        className="input input-bordered input-primary join-item flex-grow"
-                    />
-                    <button 
-                        type="button" 
-                        onClick={handleAddRecipeBySlug} 
-                        disabled={loading || !recipeSlugInput}
-                        className="btn btn-secondary join-item"
-                    >
-                        {loading && !recipeSlugInput ? 'Adding...' : 'Add Recipe'} 
-                    </button>
+          <h3 className="text-lg font-semibold">Associated Recipes</h3>
+          <button type="button" className="btn btn-secondary mb-2" onClick={() => setShowRecipePicker(true)}>
+            + Add Recipe
+          </button>
+          {showRecipePicker && (
+            <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+              <div className="bg-base-100 p-6 rounded-lg shadow-lg w-full max-w-2xl relative">
+                <button className="btn btn-sm btn-ghost absolute top-2 right-2" onClick={() => setShowRecipePicker(false)}>✕</button>
+                <h4 className="text-lg font-bold mb-2">Select a Recipe</h4>
+                <input
+                  type="text"
+                  className="input input-bordered w-full mb-4"
+                  placeholder="Search recipes..."
+                  value={recipeSearch}
+                  onChange={e => setRecipeSearch(e.target.value)}
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
+                  {allRecipes.filter(recipe => {
+                    const q = recipeSearch.trim().toLowerCase();
+                    if (!q) return true;
+                    return (
+                      recipe.name?.toLowerCase().includes(q) ||
+                      recipe.description?.toLowerCase().includes(q) ||
+                      recipe.tags?.some(tag => tag.toLowerCase().includes(q))
+                    );
+                  }).map(recipe => {
+                    const imageUrl = typeof recipe.image === 'string'
+                      ? recipe.image
+                      : (recipe.image?.Valid ? recipe.image.String : '/recipe-blank.jpg');
+                    return (
+                      <div key={recipe.id} className="card bg-base-200 shadow-sm flex flex-col">
+                        <figure className="w-full h-32 bg-base-300 flex items-center justify-center overflow-hidden rounded-t-lg">
+                          <img src={imageUrl} alt={recipe.name} className="object-cover w-full h-full" />
+                        </figure>
+                        <div className="card-body p-4 flex-1 flex flex-col">
+                          <h5 className="font-bold text-base mb-1">{recipe.name}</h5>
+                          <p className="text-xs text-gray-500 mb-2 line-clamp-2">{recipe.description}</p>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm mt-auto"
+                            onClick={async () => {
+                              setShowRecipePicker(false);
+                              setLoading(true);
+                              try {
+                                // Add recipe reference and steps/ingredients as before
+                                const foundRecipe = recipe;
+                                if (!meal.recipes.find(r => r.recipe_id === foundRecipe.id)) {
+                                  setMeal(prevMeal => {
+                                    const existingIngredients = prevMeal.ingredients.map(i => i.name + '|' + i.amount);
+                                    const newIngredients = foundRecipe.ingredients.filter(ri =>
+                                      !existingIngredients.includes(ri.name + '|' + ri.amount)
+                                    ).map(ri => ({ name: ri.name, amount: ri.amount }));
+                                    const existingStepTexts = prevMeal.steps.map(s => s.text.trim());
+                                    const newSteps = foundRecipe.steps.filter(rs =>
+                                      !existingStepTexts.includes(rs.text.trim())
+                                    ).map((rs, idx) => ({
+                                      id: `recipe-step-${foundRecipe.id}-${idx}-${Date.now()}`,
+                                      order: prevMeal.steps.length + idx + 1,
+                                      text: rs.text
+                                    }));
+                                    return {
+                                      ...prevMeal,
+                                      recipes: [...prevMeal.recipes, { recipe_id: foundRecipe.id!, recipe_slug: foundRecipe.slug, recipe_name: foundRecipe.name }],
+                                      ingredients: [...prevMeal.ingredients, ...newIngredients],
+                                      steps: [...prevMeal.steps, ...newSteps]
+                                    };
+                                  });
+                                }
+                              } finally {
+                                setLoading(false);
+                              }
+                            }}
+                          >
+                            Add This Recipe
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+              </div>
             </div>
-            {meal.recipes.length > 0 && (
-                <ul className="list-disc list-inside pl-2 space-y-1 mt-2">
-                    {meal.recipes.map((recipe) => (
-                        <li key={recipe.recipe_id} className="text-sm flex justify-between items-center bg-base-200 p-2 rounded">
-                            <span>{recipe.recipe_name ? `${recipe.recipe_name} (Slug: ${recipe.recipe_slug || 'N/A'})` : `Recipe ID: ${recipe.recipe_id}`}</span>
-                            <button type="button" onClick={() => removeRecipe(recipe.recipe_id)} className="btn btn-xs btn-error btn-outline">Remove</button>
-                        </li>
-                    ))}
-                </ul>
-            )}
+          )}
+          {meal.recipes.length > 0 && (
+            <ul className="list-disc list-inside pl-2 space-y-1 mt-2">
+              {meal.recipes.map((recipe) => (
+                <li key={recipe.recipe_id} className="text-sm flex justify-between items-center bg-base-200 p-2 rounded">
+                  <span>{recipe.recipe_name ? `${recipe.recipe_name} (Slug: ${recipe.recipe_slug || 'N/A'})` : `Recipe ID: ${recipe.recipe_id}`}</span>
+                  <button type="button" onClick={() => removeRecipe(recipe.recipe_id)} className="btn btn-xs btn-error btn-outline">Remove</button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div className="flex justify-end gap-4 pt-4">
