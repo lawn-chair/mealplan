@@ -12,6 +12,7 @@ primary_region = 'sjc'
 
 [env]
   PORT = '8080'
+  GO_ENV = 'production'
 
 [deploy]
   release_command = "goose -dir /migrations postgres up"

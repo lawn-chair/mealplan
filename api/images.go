@@ -29,18 +29,25 @@ func PostImageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
+	goEnv := utils.GetEnv("GO_ENV", "development")
 	storageEndpoint := utils.GetEnv("AWS_ENDPOINT_URL_S3", "localhost:9000")
 	storageBucket := utils.GetEnv("BUCKET_NAME", "mp-images")
 
+	useSSL := false
+	if goEnv == "production" {
+		useSSL = true
+	}
+
 	minioClient, err := minio.New(storageEndpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(utils.GetEnv("AWS_ACCESS_KEY_ID", ""), utils.GetEnv("AWS_SECRET_ACCESS_KEY", ""), ""),
-		Secure: false,
+		Secure: useSSL,
 		Region: "auto",
 	})
 	if err != nil {
 		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	uuid := uuid.New()
 
 	_, err = minioClient.PutObject(ctx,
@@ -51,9 +58,18 @@ func PostImageHandler(w http.ResponseWriter, r *http.Request) {
 		minio.PutObjectOptions{ContentType: "application/octet-stream"})
 
 	if err != nil {
+		fmt.Println("Error uploading file:", err)
 		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	fmt.Println("Uploaded file: ", uuid.String()+fileHeader.Filename)
-	json.NewEncoder(w).Encode(map[string]string{"url": "http://" + storageEndpoint + "/" + storageBucket + "/" + uuid.String() + fileHeader.Filename})
+
+	var storageURL string
+	if goEnv == "production" {
+		storageURL = "https://" + storageBucket + "." + storageEndpoint + "/" + uuid.String() + fileHeader.Filename
+	} else {
+		storageURL = "http://" + storageEndpoint + "/" + storageBucket + "/" + uuid.String() + fileHeader.Filename
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{"url": storageURL})
 }
