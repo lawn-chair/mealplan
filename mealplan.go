@@ -125,7 +125,7 @@ func main() {
 	// Serve OpenAPI spec as static file
 	r.Get("/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/x-yaml")
-		http.ServeFile(w, r, "openapi.yaml")
+		http.ServeFile(w, r, "./openapi.yaml")
 	})
 
 	// Serve Redoc documentation viewer

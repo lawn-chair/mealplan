@@ -10,8 +10,10 @@ RUN go install github.com/pressly/goose/v3/cmd/goose@latest
 
 FROM debian:bookworm
 
-COPY --from=builder /run-app /usr/local/bin/
+COPY --chmod=0755 --from=builder /run-app /mealplan/
+COPY --chmod=0644 ./openapi.yaml /mealplan/
 COPY --from=builder /go/bin/goose /usr/local/bin/
 COPY migrations /migrations
 
-CMD ["run-app"]
+WORKDIR /mealplan
+CMD ["./run-app"]
