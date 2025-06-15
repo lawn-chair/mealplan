@@ -156,11 +156,11 @@ const HouseholdManager: React.FC = () => {
         <h3 className="font-semibold mb-2">Members:</h3>
         <ul className="list-disc pl-6">
           {household?.members.map((member) => (
-            <li key={member} className="flex items-center justify-between mb-1">
-              <span>{member}</span>
+            <li key={member.user_id} className="flex items-center justify-between mb-1">
+              <span>{member.email}</span>
               <button
                 className="btn btn-xs btn-error ml-2"
-                onClick={() => handleRemoveMember(member)}
+                onClick={() => handleRemoveMember(member.user_id)}
                 disabled={loading}
               >
                 Remove

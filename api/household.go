@@ -13,13 +13,9 @@ import (
 // POST /api/household/join-code
 func GenerateJoinCodeHandler(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
-	user := r.Context().Value("user").(*clerk.User)
-	householdID, err := GetHouseholdIDForUser(db, user.ID)
-	if err != nil {
-		ErrorResponse(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	code, err := models.GenerateJoinCode(db, householdID, 10*time.Minute)
+	householdID := r.Context().Value("household").(int)
+
+	code, err := models.GenerateJoinCode(db, householdID, 60*time.Minute)
 	if err != nil {
 		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -38,7 +34,7 @@ func JoinHouseholdHandler(w http.ResponseWriter, r *http.Request) {
 		ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := models.JoinHouseholdByCode(db, user.ID, req.Code); err != nil {
+	if err := models.JoinHouseholdByCode(db, user, req.Code); err != nil {
 		ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -49,7 +45,7 @@ func JoinHouseholdHandler(w http.ResponseWriter, r *http.Request) {
 func LeaveHouseholdHandler(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
 	user := r.Context().Value("user").(*clerk.User)
-	if err := models.LeaveHousehold(db, user.ID); err != nil {
+	if err := models.LeaveHousehold(db, user); err != nil {
 		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -60,6 +56,7 @@ func LeaveHouseholdHandler(w http.ResponseWriter, r *http.Request) {
 func RemoveHouseholdMemberHandler(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
 	user := r.Context().Value("user").(*clerk.User)
+	householdID := r.Context().Value("household").(int)
 	var req struct {
 		TargetUserID string `json:"user_id"`
 	}
@@ -67,11 +64,7 @@ func RemoveHouseholdMemberHandler(w http.ResponseWriter, r *http.Request) {
 		ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	householdID, err := GetHouseholdIDForUser(db, user.ID)
-	if err != nil {
-		ErrorResponse(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+
 	if err := models.RemoveHouseholdMember(db, householdID, user.ID, req.TargetUserID); err != nil {
 		ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		return
@@ -94,12 +87,8 @@ func GetUserHouseholdHandler(w http.ResponseWriter, r *http.Request) {
 // GET /api/household/members
 func ListHouseholdMembersHandler(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
-	user := r.Context().Value("user").(*clerk.User)
-	householdID, err := GetHouseholdIDForUser(db, user.ID)
-	if err != nil {
-		ErrorResponse(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	householdID := r.Context().Value("household").(int)
+
 	members, err := models.ListHouseholdMembers(db, householdID)
 	if err != nil {
 		ErrorResponse(w, err.Error(), http.StatusInternalServerError)

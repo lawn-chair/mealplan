@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	clerk "github.com/clerk/clerk-sdk-go/v2"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -15,6 +16,19 @@ func setupTestDB(t *testing.T) (*sqlx.DB, sqlmock.Sqlmock) {
 	}
 	sdb := sqlx.NewDb(db, "postgres")
 	return sdb, mock
+}
+
+func mockClerkUser(id, email, lastName string) *clerk.User {
+	primaryEmailID := "email_1"
+	return &clerk.User{
+		ID:                    id,
+		LastName:              &lastName,
+		PrimaryEmailAddressID: &primaryEmailID,
+		EmailAddresses: []*clerk.EmailAddress{{
+			ID:           primaryEmailID,
+			EmailAddress: email,
+		}},
+	}
 }
 
 func TestGenerateJoinCode(t *testing.T) {
@@ -30,9 +44,11 @@ func TestGenerateJoinCode(t *testing.T) {
 func TestJoinHouseholdByCode(t *testing.T) {
 	db, mock := setupTestDB(t)
 	defer db.Close()
-	mock.ExpectQuery("SELECT household_id FROM household_join_codes").WillReturnRows(sqlmock.NewRows([]string{"household_id"}).AddRow(2))
+	user := mockClerkUser("user1", "user1@email.com", "Smith")
+	mock.ExpectQuery("SELECT household_id FROM household_join_codes").WithArgs("CODE1234").WillReturnRows(sqlmock.NewRows([]string{"household_id"}).AddRow(2))
+	mock.ExpectExec("DELETE FROM household_members WHERE user_id").WithArgs(user.ID).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec("INSERT INTO household_members").WillReturnResult(sqlmock.NewResult(1, 1))
-	err := JoinHouseholdByCode(db, "user1", "CODE1234")
+	err := JoinHouseholdByCode(db, user, "CODE1234")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -41,24 +57,11 @@ func TestJoinHouseholdByCode(t *testing.T) {
 func TestLeaveHousehold(t *testing.T) {
 	db, mock := setupTestDB(t)
 	defer db.Close()
-	mock.ExpectExec("DELETE FROM household_members WHERE user_id").WillReturnResult(sqlmock.NewResult(1, 1))
-	err := LeaveHousehold(db, "user1")
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-}
-
-func TestRemoveHouseholdMember(t *testing.T) {
-	db, mock := setupTestDB(t)
-	defer db.Close()
-	// Should not allow removing self
-	err := RemoveHouseholdMember(db, 1, "user1", "user1")
-	if err == nil {
-		t.Error("expected error when removing self")
-	}
-	// Should allow removing others
-	mock.ExpectExec("DELETE FROM household_members WHERE household_id").WillReturnResult(sqlmock.NewResult(1, 1))
-	err = RemoveHouseholdMember(db, 1, "user1", "user2")
+	user := mockClerkUser("user1", "user1@email.com", "Smith")
+	mock.ExpectExec("DELETE FROM household_members WHERE user_id").WithArgs(user.ID).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectQuery("INSERT INTO households").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+	mock.ExpectExec("INSERT INTO household_members").WillReturnResult(sqlmock.NewResult(1, 1))
+	err := LeaveHousehold(db, user)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

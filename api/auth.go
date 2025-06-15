@@ -32,7 +32,7 @@ func GetHouseholdIDForUser(db *sqlx.DB, userID string) (int, error) {
 	err := db.Get(&householdID, "SELECT household_id FROM household_members WHERE user_id = $1", userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return 0, errors.New("user is not a member of any household")
+			return 0, nil
 		}
 		return 0, err
 	}

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { getShoppingList, updateShoppingList, ShoppingList as IShoppingList, ShoppingListUpdatePayload } from '../api';
+import type { AxiosError } from 'axios';
+import { getShoppingList, updateShoppingList, ShoppingList as IShoppingList, ShoppingListUpdatePayload, ApiError } from '../api';
 import { formatDate } from '../utils';
 
 const ShoppingList: React.FC = () => {
@@ -17,7 +18,12 @@ const ShoppingList: React.FC = () => {
         setError(null);
       } catch (err) {
         console.error("Error fetching shopping list:", err);
-        setError("Failed to load shopping list. Please try again later.");
+        var response = (err as AxiosError).response?.data as ApiError;
+        if ((err as AxiosError).status === 404 && response.error === "no upcoming meal plan found") {
+          setError("No meal plan found. Please create a meal plan to generate a shopping list.");
+        } else {
+          setError("Failed to load shopping list. Please try again later.");
+        }
         setShoppingList(null);
       } finally {
         setIsLoading(false);
@@ -49,7 +55,7 @@ const ShoppingList: React.FC = () => {
 
     try {
       const payload: ShoppingListUpdatePayload = {
-        plan: {id: shoppingList.plan.id}, // shoppingList.plan.id is now guaranteed to be a number
+        plan_id: shoppingList.plan.id,
         ingredients: updatedIngredients,
       };
       await updateShoppingList(payload);
@@ -81,6 +87,19 @@ const ShoppingList: React.FC = () => {
   }
 
   if (error) {
+    if (
+      error === "No meal plan found. Please create a meal plan to generate a shopping list."
+    ) {
+      return (
+        <div className="text-center py-10 bg-warning/10 text-warning-content p-4 rounded-lg shadow mt-6">
+          <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <p className="mt-4 text-xl">No meal plan found</p>
+          <p className="text-sm">To see your shopping list, please create a meal plan first.</p>
+        </div>
+      );
+    }
     return (
       <div className="text-center py-10 bg-error/10 text-error-content p-4 rounded-lg shadow mt-6">
         <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">

@@ -125,7 +125,7 @@ export interface HouseholdRemoveMemberRequest {
 export interface Household {
   id: number;
   name: string;
-  members: string[];
+  members: { user_id: string; email: string }[];
 }
 
 

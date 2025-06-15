@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"slices"
@@ -26,6 +27,10 @@ func GetShoppingList(w http.ResponseWriter, r *http.Request) {
 
 	plan, err := models.GetNextPlan(db, householdID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			ErrorResponse(w, "no upcoming meal plan found", http.StatusNotFound)
+			return
+		}
 		ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		return
 	}
