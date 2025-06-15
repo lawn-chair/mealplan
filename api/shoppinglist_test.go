@@ -29,19 +29,18 @@ func mockDbCtx(next http.Handler, db *sqlx.DB) http.Handler {
 }
 
 func TestGetShoppingList(t *testing.T) {
+	const householdID = 42
 	const userID = "test-user-id"
 	const planID = 1
 	startDate := time.Now().AddDate(0, 0, +1)
 	endDate := time.Now().AddDate(0, 0, +8)
 
-	// mockUser := &clerk.User{ID: userID} // No longer directly used in context injection
-
 	// Common plan object
 	expectedPlan := models.Plan{
-		ID:        planID,
-		UserID:    userID,
-		StartDate: models.Date{Time: startDate},
-		EndDate:   models.Date{Time: endDate},
+		ID:          planID,
+		HouseholdID: householdID,
+		StartDate:   models.Date{Time: startDate},
+		EndDate:     models.Date{Time: endDate},
 	}
 
 	t.Run("success - no existing shopping status", func(t *testing.T) {
@@ -50,31 +49,23 @@ func TestGetShoppingList(t *testing.T) {
 		defer db.Close()
 		sqlxDB := sqlx.NewDb(db, "sqlmock")
 
-		// Setup mock authentication
-		mockAuthFunc := func(r *http.Request) (*clerk.User, error) {
-			return &clerk.User{ID: userID}, nil
-		}
-		originalFunc := RequiresAuthentication
-		RequiresAuthentication = mockAuthFunc
-		defer func() { RequiresAuthentication = originalFunc }()
-
 		// Mock GetNextPlan
-		planRows := sqlmock.NewRows([]string{"id", "user_id", "start_date", "end_date"}).
-			AddRow(planID, userID, startDate, endDate)
-		mock.ExpectQuery(`SELECT \* FROM plans WHERE user_id`).
-			WithArgs(userID).
+		planRows := sqlmock.NewRows([]string{"id", "household_id", "start_date", "end_date"}).
+			AddRow(planID, householdID, startDate, endDate)
+		mock.ExpectQuery(`SELECT \* FROM plans WHERE household_id`).
+			WithArgs(householdID).
 			WillReturnRows(planRows)
 
 		// Mock GetPantry
-		pantryRows := sqlmock.NewRows([]string{"id", "user_id"}).AddRow(1, userID)
-		mock.ExpectQuery(`SELECT \* FROM pantry WHERE user_id = \$1`).WithArgs(userID).WillReturnRows(pantryRows)
+		pantryRows := sqlmock.NewRows([]string{"id", "household_id"}).AddRow(1, householdID)
+		mock.ExpectQuery(`SELECT \* FROM pantry WHERE household_id = \$1`).WithArgs(householdID).WillReturnRows(pantryRows)
 		pantryItemsRows := sqlmock.NewRows([]string{"item_name"}).AddRow("sugar") // Pantry contains "sugar"
 		mock.ExpectQuery(`SELECT item_name FROM pantry_items WHERE pantry_id = \$1`).WithArgs(1).WillReturnRows(pantryItemsRows)
 
 		// Mocks for models.GetShoppingList
 		// 1. Internal plan fetch
-		internalPlanRows := sqlmock.NewRows([]string{"id", "user_id", "start_date", "end_date"}).
-			AddRow(planID, userID, startDate, endDate)
+		internalPlanRows := sqlmock.NewRows([]string{"id", "household_id", "start_date", "end_date"}).
+			AddRow(planID, householdID, startDate, endDate)
 		mock.ExpectQuery(`SELECT \* FROM plans WHERE id = \$1`).
 			WithArgs(planID).
 			WillReturnRows(internalPlanRows)
@@ -96,8 +87,8 @@ func TestGetShoppingList(t *testing.T) {
 			AddRow("Flour", "2 cups").
 			AddRow("Sugar", "1 cup"). // Will be filtered by pantry
 			AddRow("Eggs", "2")
-		mock.ExpectQuery(`SELECT i.name, i.amount FROM meal_ingredients i JOIN plan_meals pm ON pm.meal_id = i.meal_id WHERE pm.plan_id=\$1`).
-			WithArgs(planID).
+		mock.ExpectQuery(`SELECT i.name, i.amount FROM meal_ingredients i JOIN plan_meals pm ON pm.meal_id = i.meal_id WHERE pm.plan_id=\$1 AND pm.household_id=\$2`).
+			WithArgs(planID, householdID).
 			WillReturnRows(ingredientRows)
 
 		// Setup router and request
@@ -109,6 +100,10 @@ func TestGetShoppingList(t *testing.T) {
 		r.Get("/shopping-list", GetShoppingList)
 
 		req := httptest.NewRequest("GET", "/shopping-list", nil)
+		ctx := context.WithValue(req.Context(), "db", sqlxDB)
+		ctx = context.WithValue(ctx, "user", &clerk.User{ID: userID})
+		ctx = context.WithValue(ctx, "household", householdID)
+		req = req.WithContext(ctx)
 		rr := httptest.NewRecorder()
 		r.ServeHTTP(rr, req)
 		fmt.Println(rr.Body.String())
@@ -119,7 +114,7 @@ func TestGetShoppingList(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, expectedPlan.ID, respBody.Plan.ID)
-		assert.Equal(t, expectedPlan.UserID, respBody.Plan.UserID)
+		assert.Equal(t, expectedPlan.HouseholdID, respBody.Plan.HouseholdID)
 
 		require.Len(t, respBody.Ingredients, 2) // Flour, Eggs (Sugar filtered)
 		assert.Equal(t, "Flour", respBody.Ingredients[0].Name)
@@ -136,30 +131,22 @@ func TestGetShoppingList(t *testing.T) {
 		defer db.Close()
 		sqlxDB := sqlx.NewDb(db, "sqlmock")
 
-		// Setup mock authentication
-		mockAuthFunc := func(r *http.Request) (*clerk.User, error) {
-			return &clerk.User{ID: userID}, nil
-		}
-		originalFunc := RequiresAuthentication
-		RequiresAuthentication = mockAuthFunc
-		defer func() { RequiresAuthentication = originalFunc }()
-
 		// Mock GetNextPlan
-		planRows := sqlmock.NewRows([]string{"id", "user_id", "start_date", "end_date"}).
-			AddRow(planID, userID, startDate, endDate)
-		mock.ExpectQuery(`SELECT \* FROM plans WHERE user_id`).
-			WithArgs(userID).
+		planRows := sqlmock.NewRows([]string{"id", "household_id", "start_date", "end_date"}).
+			AddRow(planID, householdID, startDate, endDate)
+		mock.ExpectQuery(`SELECT \* FROM plans WHERE household_id`).
+			WithArgs(householdID).
 			WillReturnRows(planRows)
 
 		// Mock GetPantry (empty for this test to simplify)
-		pantryRows := sqlmock.NewRows([]string{"id", "user_id"}).AddRow(1, userID)
-		mock.ExpectQuery(`SELECT \* FROM pantry WHERE user_id = \$1`).WithArgs(userID).WillReturnRows(pantryRows)
+		pantryRows := sqlmock.NewRows([]string{"id", "household_id"}).AddRow(1, householdID)
+		mock.ExpectQuery(`SELECT \* FROM pantry WHERE household_id = \$1`).WithArgs(householdID).WillReturnRows(pantryRows)
 		mock.ExpectQuery(`SELECT item_name FROM pantry_items WHERE pantry_id = \$1`).WithArgs(1).WillReturnRows(sqlmock.NewRows([]string{"item_name"}))
 
 		// Mocks for models.GetShoppingList
 		// 1. Internal plan fetch
-		internalPlanRows := sqlmock.NewRows([]string{"id", "user_id", "start_date", "end_date"}).
-			AddRow(planID, userID, startDate, endDate)
+		internalPlanRows := sqlmock.NewRows([]string{"id", "household_id", "start_date", "end_date"}).
+			AddRow(planID, householdID, startDate, endDate)
 		mock.ExpectQuery(`SELECT \* FROM plans WHERE id = \$1`).
 			WithArgs(planID).
 			WillReturnRows(internalPlanRows)
@@ -180,21 +167,21 @@ func TestGetShoppingList(t *testing.T) {
 		ingredientRows := sqlmock.NewRows([]string{"name", "amount"}).
 			AddRow("Flour", "2 cups").
 			AddRow("Eggs", "2")
-		mock.ExpectQuery(`SELECT i.name, i.amount FROM meal_ingredients i JOIN plan_meals pm ON pm.meal_id = i.meal_id WHERE pm.plan_id=\$1`).
-			WithArgs(planID).
+		mock.ExpectQuery(`SELECT i.name, i.amount FROM meal_ingredients i JOIN plan_meals pm ON pm.meal_id = i.meal_id WHERE pm.plan_id=\$1 AND pm.household_id=\$2`).
+			WithArgs(planID, householdID).
 			WillReturnRows(ingredientRows)
 
 		r := chi.NewRouter()
 		r.Use(func(next http.Handler) http.Handler {
 			return mockDbCtx(next, sqlxDB)
 		})
-		// r.Get("/shopping-list", func(w http.ResponseWriter, req *http.Request) {
-		// 	// ctx := context.WithValue(req.Context(), clerk.UserContextKey{}, mockUser) // Removed
-		// 	GetShoppingList(w, req) // Pass req directly
-		// })
 		r.Get("/shopping-list", GetShoppingList)
 
 		req := httptest.NewRequest("GET", "/shopping-list", nil)
+		ctx := context.WithValue(req.Context(), "db", sqlxDB)
+		ctx = context.WithValue(ctx, "user", &clerk.User{ID: userID})
+		ctx = context.WithValue(ctx, "household", householdID)
+		req = req.WithContext(ctx)
 		rr := httptest.NewRecorder()
 		r.ServeHTTP(rr, req)
 
@@ -216,21 +203,14 @@ func TestGetShoppingList(t *testing.T) {
 }
 
 func TestUpdateShoppingList(t *testing.T) {
-	const userID = "test-user-id"
+	const householdID = 42
 	const planID = 1
+	const userID = "test-user-id"
 	startDate := time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC)
 	endDate := time.Date(2025, 6, 23, 0, 0, 0, 0, time.UTC)
 
-	// mockUser := &clerk.User{ID: userID} // No longer directly used
-
 	payload := models.ShoppingList{
-		// Plan ID is part of the payload for UpdateShoppingList as per openapi.yaml ShoppingListUpdatePayload
-		// However, the models.ShoppingList struct itself contains a full Plan object.
-		// The API handler decodes into models.ShoppingList.
-		// The model function models.UpdateShoppingList takes *models.ShoppingList.
-		// Let's ensure the payload matches what the API expects and what the model function uses.
-		// The key is that `list.Plan.ID` will be used by `models.UpdateShoppingList`.
-		Plan: models.Plan{ID: planID, UserID: userID, StartDate: models.Date{Time: startDate}, EndDate: models.Date{Time: endDate}},
+		Plan: models.Plan{ID: planID, HouseholdID: householdID, StartDate: models.Date{Time: startDate}, EndDate: models.Date{Time: endDate}},
 		Ingredients: []models.ShoppingListItem{
 			{Name: "Flour", Amount: "2 cups", Checked: true},
 			{Name: "Eggs", Amount: "2", Checked: false},
@@ -244,17 +224,9 @@ func TestUpdateShoppingList(t *testing.T) {
 		defer db.Close()
 		sqlxDB := sqlx.NewDb(db, "sqlmock")
 
-		// Setup mock authentication
-		mockAuthFunc := func(r *http.Request) (*clerk.User, error) {
-			return &clerk.User{ID: userID}, nil
-		}
-		originalFunc := RequiresAuthentication
-		RequiresAuthentication = mockAuthFunc
-		defer func() { RequiresAuthentication = originalFunc }()
-
 		// Mock for plan validation in models.UpdateShoppingList
-		mock.ExpectQuery(`SELECT id FROM plans WHERE id = \$1 AND user_id = \$2`).
-			WithArgs(planID, userID).
+		mock.ExpectQuery(`SELECT id FROM plans WHERE id = \$1 AND household_id = \$2`).
+			WithArgs(planID, householdID).
 			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(planID))
 
 		// Mock for DB update in models.UpdateShoppingList
@@ -274,6 +246,10 @@ func TestUpdateShoppingList(t *testing.T) {
 		r.Put("/shopping-list", UpdateShoppingList)
 
 		req := httptest.NewRequest("PUT", "/shopping-list", bytes.NewBuffer(payloadBytes))
+		ctx := context.WithValue(req.Context(), "db", sqlxDB)
+		ctx = context.WithValue(ctx, "user", &clerk.User{ID: userID})
+		ctx = context.WithValue(ctx, "household", householdID)
+		req = req.WithContext(ctx)
 		rr := httptest.NewRecorder()
 		r.ServeHTTP(rr, req)
 
@@ -295,16 +271,9 @@ func TestUpdateShoppingList(t *testing.T) {
 		defer db.Close()
 		sqlxDB := sqlx.NewDb(db, "sqlmock")
 
-		// Setup mock authentication
-		mockAuthFunc := func(r *http.Request) (*clerk.User, error) {
-			return &clerk.User{ID: userID}, nil
-		}
-		originalFunc := RequiresAuthentication
-		RequiresAuthentication = mockAuthFunc
-		defer func() { RequiresAuthentication = originalFunc }()
-
-		mock.ExpectQuery(`SELECT id FROM plans WHERE id = \\$1 AND user_id = \\$2`).
-			WithArgs(planID, userID).
+		// Add plan validation query mock
+		mock.ExpectQuery(`SELECT id FROM plans WHERE id = \$1 AND household_id = \$2`).
+			WithArgs(planID, householdID).
 			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(planID))
 
 		mock.ExpectExec(`UPDATE shopping_status SET status = \$1 WHERE plan_id = \$2`).
@@ -314,10 +283,13 @@ func TestUpdateShoppingList(t *testing.T) {
 		r.Use(func(next http.Handler) http.Handler {
 			return mockDbCtx(next, sqlxDB)
 		})
-
 		r.Put("/shopping-list", UpdateShoppingList)
 
 		req := httptest.NewRequest("PUT", "/shopping-list", bytes.NewBuffer(payloadBytes))
+		ctx := context.WithValue(req.Context(), "db", sqlxDB)
+		ctx = context.WithValue(ctx, "user", &clerk.User{ID: userID})
+		ctx = context.WithValue(ctx, "household", householdID)
+		req = req.WithContext(ctx)
 		rr := httptest.NewRecorder()
 		r.ServeHTTP(rr, req)
 

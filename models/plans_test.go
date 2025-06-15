@@ -31,16 +31,14 @@ func TestGetPlan(t *testing.T) {
 	testID := 1
 	startDate := time.Now().AddDate(0, 0, 1) // tomorrow
 	endDate := time.Now().AddDate(0, 0, 7)   // a week from today
-	userID := "test-user-123"
+	householdID := 42
 
-	// Mock the plan query
-	planRows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "user_id"}).
-		AddRow(testID, startDate, endDate, userID)
+	planRows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "household_id"}).
+		AddRow(testID, startDate, endDate, householdID)
 	mock.ExpectQuery("SELECT \\* FROM plans WHERE id=\\$1").
 		WithArgs(testID).
 		WillReturnRows(planRows)
 
-	// Mock the plan_meals query
 	mealRows := sqlmock.NewRows([]string{"id", "plan_id", "meal_id"}).
 		AddRow(1, testID, 101).
 		AddRow(2, testID, 102)
@@ -51,7 +49,7 @@ func TestGetPlan(t *testing.T) {
 	plan, err := GetPlan(sqlxDB, testID)
 	assert.NoError(t, err)
 	assert.Equal(t, testID, plan.ID)
-	assert.Equal(t, userID, plan.UserID)
+	assert.Equal(t, householdID, plan.HouseholdID)
 	assert.Equal(t, 2, len(plan.Meals))
 	assert.Equal(t, 101, plan.Meals[0])
 	assert.Equal(t, 102, plan.Meals[1])
@@ -69,19 +67,45 @@ func TestGetFuturePlans(t *testing.T) {
 	}
 	defer sqlxDB.Close()
 
+	householdID := 42
+
 	// Mock the plans query
 	startDate1 := time.Now().AddDate(0, 0, 1) // tomorrow
 	endDate1 := time.Now().AddDate(0, 0, 7)   // a week from today
 	startDate2 := time.Now().AddDate(0, 0, 8) // 8 days from today
 	endDate2 := time.Now().AddDate(0, 0, 14)  // two weeks from today
 
-	planRows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "user_id"}).
-		AddRow(1, startDate1, endDate1, "user1").
-		AddRow(2, startDate2, endDate2, "user1")
-	mock.ExpectQuery("SELECT \\* FROM plans WHERE end_date > NOW\\(\\) ORDER BY start_date ASC").
-		WillReturnRows(planRows)
+	planIDsRows := sqlmock.NewRows([]string{"id"}).
+		AddRow(1).
+		AddRow(2)
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id FROM plans WHERE end_date > NOW() AND household_id=$1 ORDER BY start_date ASC")).
+		WithArgs(householdID).
+		WillReturnRows(planIDsRows)
 
-	plans, err := GetFuturePlans(sqlxDB)
+	// Mock GetPlan for each id
+	planRows1 := sqlmock.NewRows([]string{"id", "start_date", "end_date", "household_id"}).
+		AddRow(1, startDate1, endDate1, householdID)
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT * FROM plans WHERE id=$1")).
+		WithArgs(1).
+		WillReturnRows(planRows1)
+	mealRows1 := sqlmock.NewRows([]string{"id", "plan_id", "meal_id"}).
+		AddRow(1, 1, 101)
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT * FROM plan_meals WHERE plan_id=$1")).
+		WithArgs(1).
+		WillReturnRows(mealRows1)
+
+	planRows2 := sqlmock.NewRows([]string{"id", "start_date", "end_date", "household_id"}).
+		AddRow(2, startDate2, endDate2, householdID)
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT * FROM plans WHERE id=$1")).
+		WithArgs(2).
+		WillReturnRows(planRows2)
+	mealRows2 := sqlmock.NewRows([]string{"id", "plan_id", "meal_id"}).
+		AddRow(2, 2, 102)
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT * FROM plan_meals WHERE plan_id=$1")).
+		WithArgs(2).
+		WillReturnRows(mealRows2)
+
+	plans, err := GetFuturePlans(sqlxDB, householdID)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, len(*plans))
 	assert.Equal(t, 1, (*plans)[0].ID)
@@ -101,17 +125,18 @@ func TestGetPlanIngredients(t *testing.T) {
 	defer sqlxDB.Close()
 
 	planID := 1
+	householdID := 42
 
 	// Mock the ingredients query
 	ingredientsRows := sqlmock.NewRows([]string{"name", "amount"}).
 		AddRow("Flour", "2 cups").
 		AddRow("Sugar", "1 cup").
 		AddRow("Eggs", "2")
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT i.name, i.amount FROM meal_ingredients i JOIN plan_meals pm ON pm.meal_id = i.meal_id WHERE pm.plan_id=$1")).
-		WithArgs(planID).
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT i.name, i.amount FROM meal_ingredients i JOIN plan_meals pm ON pm.meal_id = i.meal_id WHERE pm.plan_id=$1 AND pm.household_id=$2")).
+		WithArgs(planID, householdID).
 		WillReturnRows(ingredientsRows)
 
-	ingredients, err := GetPlanIngredients(sqlxDB, planID)
+	ingredients, err := GetPlanIngredients(sqlxDB, planID, householdID)
 	assert.NoError(t, err)
 	assert.Equal(t, 3, len(*ingredients))
 	assert.Equal(t, "Flour", (*ingredients)[0].Name)
@@ -137,19 +162,19 @@ func TestCreatePlan(t *testing.T) {
 	endFuture := time.Now().AddDate(0, 0, 12) // 12 days in the future
 
 	testPlan := &Plan{
-		StartDate: Date{Time: future},
-		EndDate:   Date{Time: endFuture},
-		UserID:    "test-user-123",
-		Meals:     []int{101, 102},
+		StartDate:   Date{Time: future},
+		EndDate:     Date{Time: endFuture},
+		HouseholdID: 42,
+		Meals:       []int{101, 102},
 	}
 
 	// Mock the database interactions for CreatePlan
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO plans").
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), "test-user-123").
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), 42).
 		WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectQuery("SELECT id FROM plans WHERE start_date=\\$1 AND user_id=\\$2").
-		WithArgs(sqlmock.AnyArg(), "test-user-123").
+	mock.ExpectQuery("SELECT id FROM plans WHERE start_date=\\$1 AND household_id=\\$2").
+		WithArgs(sqlmock.AnyArg(), 42).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 	mock.ExpectCommit()
 
@@ -166,8 +191,8 @@ func TestCreatePlan(t *testing.T) {
 	mock.ExpectCommit()
 
 	// Final GetPlan call
-	planRows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "user_id"}).
-		AddRow(1, future, endFuture, "test-user-123")
+	planRows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "household_id"}).
+		AddRow(1, future, endFuture, 42)
 	mock.ExpectQuery("SELECT \\* FROM plans WHERE id=\\$1").
 		WithArgs(1).
 		WillReturnRows(planRows)
@@ -178,13 +203,13 @@ func TestCreatePlan(t *testing.T) {
 			AddRow(2, 1, 102))
 
 	// Execute the function
-	plan, err := CreatePlan(sqlxDB, testPlan)
+	plan, err := CreatePlan(sqlxDB, testPlan, 42)
 
 	// Assertions
 	assert.NoError(t, err)
 	assert.NotNil(t, plan)
 	assert.Equal(t, 1, plan.ID)
-	assert.Equal(t, "test-user-123", plan.UserID)
+	assert.Equal(t, 42, plan.HouseholdID)
 	assert.Equal(t, 2, len(plan.Meals))
 
 	// Ensure all expectations were met
@@ -203,36 +228,36 @@ func TestValidatePlan(t *testing.T) {
 		{
 			name: "Valid Plan",
 			plan: &Plan{
-				StartDate: Date{Time: now.AddDate(0, 0, 1)}, // tomorrow
-				EndDate:   Date{Time: now.AddDate(0, 0, 7)}, // a week from today
-				UserID:    "test-user",
+				StartDate:   Date{Time: now.AddDate(0, 0, 1)}, // tomorrow
+				EndDate:     Date{Time: now.AddDate(0, 0, 7)}, // a week from today
+				HouseholdID: 42,
 			},
 			wantErr: false,
 		},
 		{
 			name: "Start Date in Past",
 			plan: &Plan{
-				StartDate: Date{Time: now.AddDate(0, 0, -1)}, // yesterday
-				EndDate:   Date{Time: now.AddDate(0, 0, 7)},  // a week from today
-				UserID:    "test-user",
+				StartDate:   Date{Time: now.AddDate(0, 0, -1)}, // yesterday
+				EndDate:     Date{Time: now.AddDate(0, 0, 7)},  // a week from today
+				HouseholdID: 42,
 			},
 			wantErr: true,
 		},
 		{
 			name: "End Date in Past",
 			plan: &Plan{
-				StartDate: Date{Time: now.AddDate(0, 0, 1)},  // tomorrow
-				EndDate:   Date{Time: now.AddDate(0, 0, -3)}, // 3 days ago
-				UserID:    "test-user",
+				StartDate:   Date{Time: now.AddDate(0, 0, 1)},  // tomorrow
+				EndDate:     Date{Time: now.AddDate(0, 0, -3)}, // 3 days ago
+				HouseholdID: 42,
 			},
 			wantErr: true,
 		},
 		{
 			name: "Start Date After End Date",
 			plan: &Plan{
-				StartDate: Date{Time: now.AddDate(0, 0, 7)}, // a week from today
-				EndDate:   Date{Time: now.AddDate(0, 0, 1)}, // tomorrow
-				UserID:    "test-user",
+				StartDate:   Date{Time: now.AddDate(0, 0, 7)}, // a week from today
+				EndDate:     Date{Time: now.AddDate(0, 0, 1)}, // tomorrow
+				HouseholdID: 42,
 			},
 			wantErr: true,
 		},
@@ -263,11 +288,11 @@ func TestUpdatePlan(t *testing.T) {
 	endFuture := time.Now().AddDate(0, 0, 12) // 12 days in the future
 
 	testPlan := &Plan{
-		ID:        planID,
-		StartDate: Date{Time: future},
-		EndDate:   Date{Time: endFuture},
-		UserID:    "test-user-123",
-		Meals:     []int{201, 202, 203},
+		ID:          planID,
+		StartDate:   Date{Time: future},
+		EndDate:     Date{Time: endFuture},
+		HouseholdID: 42,
+		Meals:       []int{201, 202, 203},
 	}
 
 	// Mock the transaction for UpdatePlan
@@ -284,8 +309,8 @@ func TestUpdatePlan(t *testing.T) {
 	mock.ExpectCommit()
 
 	// Mock the final GetPlan call
-	planRows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "user_id"}).
-		AddRow(planID, future, endFuture, "test-user-123")
+	planRows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "household_id"}).
+		AddRow(planID, future, endFuture, 42)
 	mock.ExpectQuery("SELECT \\* FROM plans WHERE id=\\$1").
 		WithArgs(planID).
 		WillReturnRows(planRows)
@@ -305,7 +330,7 @@ func TestUpdatePlan(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, updatedPlan)
 	assert.Equal(t, planID, updatedPlan.ID)
-	assert.Equal(t, "test-user-123", updatedPlan.UserID)
+	assert.Equal(t, 42, updatedPlan.HouseholdID)
 	assert.Equal(t, 3, len(updatedPlan.Meals))
 	assert.Equal(t, 201, updatedPlan.Meals[0])
 	assert.Equal(t, 202, updatedPlan.Meals[1])

@@ -12,8 +12,13 @@ import (
 func GetPantryHandler(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
 	user := r.Context().Value("user").(*clerk.User)
+	householdID, err := GetHouseholdIDForUser(db, user.ID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-	pantry, err := models.GetPantry(db, user.ID)
+	pantry, err := models.GetPantry(db, householdID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -25,6 +30,11 @@ func GetPantryHandler(w http.ResponseWriter, r *http.Request) {
 func UpdatePantryHandler(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
 	user := r.Context().Value("user").(*clerk.User)
+	householdID, err := GetHouseholdIDForUser(db, user.ID)
+	if err != nil {
+		ErrorResponse(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	data := new(models.Pantry)
 	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
@@ -32,7 +42,7 @@ func UpdatePantryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pantry, err := models.UpdatePantry(db, user.ID, data)
+	pantry, err := models.UpdatePantry(db, householdID, data)
 	if err != nil {
 		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -44,8 +54,13 @@ func UpdatePantryHandler(w http.ResponseWriter, r *http.Request) {
 func DeletePantryHandler(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
 	user := r.Context().Value("user").(*clerk.User)
+	householdID, err := GetHouseholdIDForUser(db, user.ID)
+	if err != nil {
+		ErrorResponse(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-	err := models.DeletePantry(db, user.ID)
+	err = models.DeletePantry(db, householdID)
 	if err != nil {
 		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -57,6 +72,11 @@ func DeletePantryHandler(w http.ResponseWriter, r *http.Request) {
 func CreatePantryHandler(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
 	user := r.Context().Value("user").(*clerk.User)
+	householdID, err := GetHouseholdIDForUser(db, user.ID)
+	if err != nil {
+		ErrorResponse(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	data := new(models.Pantry)
 	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
@@ -64,7 +84,7 @@ func CreatePantryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pantry, err := models.CreatePantry(db, user.ID, data)
+	pantry, err := models.CreatePantry(db, householdID, data)
 	if err != nil {
 		ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		return

@@ -83,7 +83,7 @@ func GetShoppingList(db *sqlx.DB, planID int) (*ShoppingList, error) {
 		}
 	}
 
-	ingredients, err := GetPlanIngredients(db, planID)
+	ingredients, err := GetPlanIngredients(db, planID, plan.HouseholdID)
 	if err != nil {
 		fmt.Println("Error fetching plan ingredients:", err) // Keep original logging style
 		return nil, err
@@ -113,14 +113,14 @@ func GetShoppingList(db *sqlx.DB, planID int) (*ShoppingList, error) {
 	return shoppingList, nil
 }
 
-func UpdateShoppingList(db *sqlx.DB, userID string, list *ShoppingList) error {
+func UpdateShoppingList(db *sqlx.DB, householdID int, list *ShoppingList) error {
 
 	if list.Plan.ID <= 0 {
 		return fmt.Errorf("invalid plan ID: %d", list.Plan.ID)
 	}
 
 	var planID int
-	err := db.Get(&planID, "SELECT id FROM plans WHERE id = $1 AND user_id = $2", list.Plan.ID, userID)
+	err := db.Get(&planID, "SELECT id FROM plans WHERE id = $1 AND household_id = $2", list.Plan.ID, householdID)
 	if err != nil {
 		return fmt.Errorf("plan not found or unauthorized: %w", err)
 	}

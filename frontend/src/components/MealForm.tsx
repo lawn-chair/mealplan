@@ -15,7 +15,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { getMealBySlug, createMeal, updateMeal, Meal, MealIngredient, MealStep, uploadImage, Recipe, getRecipes } from '../api';
+import { getMealBySlug, createMeal, updateMeal, Meal, MealIngredient, MealStep, uploadImage, Recipe, getRecipes, getRecipeById } from '../api';
 import { SortableStepItem } from './SortableStepItem';
 import TagInput from './TagInput';
 
@@ -435,26 +435,15 @@ const MealForm: React.FC<MealFormProps> = ({ isEditMode }) => {
                               setLoading(true);
                               try {
                                 // Add recipe reference and steps/ingredients as before
-                                const foundRecipe = recipe;
+                                const foundRecipe = (await getRecipeById(recipe.id!)).data;
+                                console.log('Adding recipe:', foundRecipe);
                                 if (!meal.recipes.find(r => r.recipe_id === foundRecipe.id)) {
                                   setMeal(prevMeal => {
-                                    const existingIngredients = prevMeal.ingredients.map(i => i.name + '|' + i.amount);
-                                    const newIngredients = foundRecipe.ingredients.filter(ri =>
-                                      !existingIngredients.includes(ri.name + '|' + ri.amount)
-                                    ).map(ri => ({ name: ri.name, amount: ri.amount }));
-                                    const existingStepTexts = prevMeal.steps.map(s => s.text.trim());
-                                    const newSteps = foundRecipe.steps.filter(rs =>
-                                      !existingStepTexts.includes(rs.text.trim())
-                                    ).map((rs, idx) => ({
-                                      id: `recipe-step-${foundRecipe.id}-${idx}-${Date.now()}`,
-                                      order: prevMeal.steps.length + idx + 1,
-                                      text: rs.text
-                                    }));
                                     return {
                                       ...prevMeal,
                                       recipes: [...prevMeal.recipes, { recipe_id: foundRecipe.id!, recipe_slug: foundRecipe.slug, recipe_name: foundRecipe.name }],
-                                      ingredients: [...prevMeal.ingredients, ...newIngredients],
-                                      steps: [...prevMeal.steps, ...newSteps]
+                                      ingredients: [...prevMeal.ingredients, ...foundRecipe.ingredients],
+                                      steps: [...prevMeal.steps, ...foundRecipe.steps]
                                     };
                                   });
                                 }

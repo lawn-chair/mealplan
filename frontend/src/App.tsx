@@ -15,6 +15,7 @@ import Home from './components/Home';
 import NotFound from './components/NotFound';
 import PageTitleUpdater from './components/PageTitleUpdater'; // Import the new component
 import { setupAuthTokenInterceptor } from './api';
+import HouseholdManager from './components/HouseholdManager';
 import './App.css';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -54,7 +55,7 @@ function App() {
               <SignedIn>
                 <li><Link to="/plans" className="link-primary">Plans</Link></li>
                 <li><Link to="/pantry" className="link-primary">Pantry</Link></li>
-                
+                <li><Link to="/household" className="link-primary">Household</Link></li>
               </SignedIn>
             </ul>
           </div>
@@ -130,6 +131,10 @@ function App() {
           <Route
             path="/plans/:id/edit"
             element={<ProtectedRoute><PageTitleUpdater section="Edit Plan" /><PlanForm isEditMode={true} /></ProtectedRoute>}
+          />
+          <Route
+            path="/household"
+            element={<ProtectedRoute><PageTitleUpdater section="Household" /><HouseholdManager /></ProtectedRoute>}
           />
           <Route path="*" element={<><PageTitleUpdater section="Not Found" /><NotFound /></>} />
         </Routes>

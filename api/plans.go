@@ -4,21 +4,23 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/clerk/clerk-sdk-go/v2"
 	"github.com/jmoiron/sqlx"
 	"github.com/lawn-chair/mealplan/models"
 )
 
 func GetPlans(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
+	user, ok := r.Context().Value("user").(*clerk.User)
+	householdID := r.Context().Value("household").(int)
+
+	if !ok || user == nil {
+		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
+		return
+	}
 
 	if r.URL.Query().Get("last") != "" {
-		user, err := RequiresAuthentication(r)
-		if err != nil {
-			ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
-			return
-		}
-
-		plan, err := models.GetLastPlan(db, user.ID)
+		plan, err := models.GetLastPlan(db, householdID)
 		if err != nil {
 			ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -26,13 +28,7 @@ func GetPlans(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(plan)
 		return
 	} else if r.URL.Query().Get("next") != "" {
-		user, err := RequiresAuthentication(r)
-		if err != nil {
-			ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
-			return
-		}
-
-		plan, err := models.GetNextPlan(db, user.ID)
+		plan, err := models.GetNextPlan(db, householdID)
 		if err != nil {
 			ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -40,7 +36,7 @@ func GetPlans(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(plan)
 		return
 	} else if r.URL.Query().Get("future") != "" {
-		plans, err := models.GetFuturePlans(db)
+		plans, err := models.GetFuturePlans(db, householdID)
 		if err != nil {
 			ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -49,7 +45,7 @@ func GetPlans(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	plans, err := models.GetPlans(db)
+	plans, err := models.GetPlans(db, householdID)
 	if err != nil {
 		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -60,10 +56,15 @@ func GetPlans(w http.ResponseWriter, r *http.Request) {
 func GetPlan(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
 	id := r.Context().Value("id").(int)
+	household := r.Context().Value("household").(int)
 
 	plan, err := models.GetPlan(db, id)
 	if err != nil {
 		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if plan.HouseholdID != household {
+		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
 		return
 	}
 	json.NewEncoder(w).Encode(plan)
@@ -72,9 +73,10 @@ func GetPlan(w http.ResponseWriter, r *http.Request) {
 func UpdatePlan(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
 	id := r.Context().Value("id").(int)
+	user, ok := r.Context().Value("user").(*clerk.User)
+	householdID := r.Context().Value("household").(int)
 
-	user, err := RequiresAuthentication(r)
-	if err != nil {
+	if !ok || user == nil {
 		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
 		return
 	}
@@ -86,10 +88,11 @@ func UpdatePlan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	plan, err := models.GetPlan(db, id)
-	if err != nil || (plan.UserID != user.ID) || (data.UserID != "" && data.UserID != user.ID) {
+	if err != nil || (plan.HouseholdID != householdID) {
 		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
+		return
 	}
-	data.UserID = user.ID
+	data.HouseholdID = householdID
 
 	plan, err = models.UpdatePlan(db, id, data)
 	if err != nil {
@@ -105,8 +108,9 @@ func UpdatePlan(w http.ResponseWriter, r *http.Request) {
 
 func CreatePlan(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
-	user, err := RequiresAuthentication(r)
-	if err != nil {
+	user, ok := r.Context().Value("user").(*clerk.User)
+	householdID := r.Context().Value("household").(int)
+	if !ok || user == nil {
 		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
 		return
 	}
@@ -116,9 +120,8 @@ func CreatePlan(w http.ResponseWriter, r *http.Request) {
 		ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	data.UserID = user.ID
 
-	plan, err := models.CreatePlan(db, data)
+	plan, err := models.CreatePlan(db, data, householdID)
 	if err != nil {
 		if err == models.ErrValidation {
 			ErrorResponse(w, err.Error(), http.StatusBadRequest)
@@ -133,16 +136,17 @@ func CreatePlan(w http.ResponseWriter, r *http.Request) {
 func DeletePlan(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
 	id := r.Context().Value("id").(int)
-
-	user, err := RequiresAuthentication(r)
-	if err != nil {
+	householdID := r.Context().Value("household").(int)
+	user, ok := r.Context().Value("user").(*clerk.User)
+	if !ok || user == nil {
 		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
 		return
 	}
 
 	plan, err := models.GetPlan(db, id)
-	if err != nil || (plan.UserID != user.ID) {
+	if err != nil || (plan.HouseholdID != householdID) {
 		ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
+		return
 	}
 
 	err = models.DeletePlan(db, id)
@@ -157,8 +161,9 @@ func DeletePlan(w http.ResponseWriter, r *http.Request) {
 func GetPlanIngredients(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
 	id := r.Context().Value("id").(int)
+	householdID := r.Context().Value("household").(int)
 
-	ingredients, err := models.GetPlanIngredients(db, id)
+	ingredients, err := models.GetPlanIngredients(db, id, householdID)
 	if err != nil {
 		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return

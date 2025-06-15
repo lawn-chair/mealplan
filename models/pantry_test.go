@@ -17,10 +17,10 @@ func TestGetPantry(t *testing.T) {
 
 	sqlxDB := sqlx.NewDb(db, "sqlmock")
 
-	testUserID := "test-user-id"
-	rows1 := sqlmock.NewRows([]string{"id", "user_id"}).AddRow(1, testUserID)
-	mock.ExpectQuery("SELECT \\* FROM pantry WHERE user_id").
-		WithArgs(testUserID).
+	testHouseholdID := 42
+	rows1 := sqlmock.NewRows([]string{"id", "household_id"}).AddRow(1, testHouseholdID)
+	mock.ExpectQuery("SELECT \\* FROM pantry WHERE household_id").
+		WithArgs(testHouseholdID).
 		WillReturnRows(rows1)
 
 	rows2 := sqlmock.NewRows([]string{"item_name"}).AddRow("salt").AddRow("pepper").AddRow("sugar")
@@ -28,10 +28,10 @@ func TestGetPantry(t *testing.T) {
 		WithArgs(1).
 		WillReturnRows(rows2)
 
-	pantry, err := GetPantry(sqlxDB, testUserID)
+	pantry, err := GetPantry(sqlxDB, testHouseholdID)
 	assert.NoError(t, err)
 	assert.Equal(t, uint(1), pantry.ID)
-	assert.Equal(t, testUserID, pantry.UserID)
+	assert.Equal(t, testHouseholdID, pantry.HouseholdID)
 	assert.Equal(t, 3, len(pantry.Items))
 	assert.Equal(t, "salt", pantry.Items[0])
 	assert.Equal(t, "pepper", pantry.Items[1])
@@ -52,20 +52,20 @@ func TestCreatePantry(t *testing.T) {
 
 	sqlxDB := sqlx.NewDb(db, "sqlmock")
 
-	testUserID := "test-user-id"
+	testHouseholdID := 42
 	testPantry := &Pantry{
 		Items: []string{"flour", "sugar", "salt"},
 	}
 
 	// First, the INSERT into pantry table
 	mock.ExpectExec("INSERT INTO pantry").
-		WithArgs(testUserID).
+		WithArgs(testHouseholdID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	// First GetPantry call within UpdatePantry after INSERT
-	rows1 := sqlmock.NewRows([]string{"id", "user_id"}).AddRow(1, testUserID)
-	mock.ExpectQuery("SELECT \\* FROM pantry WHERE user_id").
-		WithArgs(testUserID).
+	rows1 := sqlmock.NewRows([]string{"id", "household_id"}).AddRow(1, testHouseholdID)
+	mock.ExpectQuery("SELECT \\* FROM pantry WHERE household_id").
+		WithArgs(testHouseholdID).
 		WillReturnRows(rows1)
 
 	// Get existing items (empty at first)
@@ -86,9 +86,9 @@ func TestCreatePantry(t *testing.T) {
 	}
 
 	// Final GetPantry call - after UpdatePantry
-	rows2 := sqlmock.NewRows([]string{"id", "user_id"}).AddRow(1, testUserID)
-	mock.ExpectQuery("SELECT \\* FROM pantry WHERE user_id").
-		WithArgs(testUserID).
+	rows2 := sqlmock.NewRows([]string{"id", "household_id"}).AddRow(1, testHouseholdID)
+	mock.ExpectQuery("SELECT \\* FROM pantry WHERE household_id").
+		WithArgs(testHouseholdID).
 		WillReturnRows(rows2)
 
 	rows3 := sqlmock.NewRows([]string{"item_name"}).AddRow("flour").AddRow("sugar").AddRow("salt")
@@ -96,11 +96,11 @@ func TestCreatePantry(t *testing.T) {
 		WithArgs(1).
 		WillReturnRows(rows3)
 
-	result, err := CreatePantry(sqlxDB, testUserID, testPantry)
+	result, err := CreatePantry(sqlxDB, testHouseholdID, testPantry)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, uint(1), result.ID)
-	assert.Equal(t, testUserID, result.UserID)
+	assert.Equal(t, testHouseholdID, result.HouseholdID)
 	assert.Equal(t, 3, len(result.Items))
 
 	// Ensure all expectations were met
@@ -118,15 +118,15 @@ func TestUpdatePantry(t *testing.T) {
 
 	sqlxDB := sqlx.NewDb(db, "sqlmock")
 
-	testUserID := "test-user-id"
+	testHouseholdID := 42
 	testPantry := &Pantry{
 		Items: []string{"updated-item-1", "updated-item-2"},
 	}
 
 	// First GetPantry call
-	rows1 := sqlmock.NewRows([]string{"id", "user_id"}).AddRow(1, testUserID)
-	mock.ExpectQuery("SELECT \\* FROM pantry WHERE user_id").
-		WithArgs(testUserID).
+	rows1 := sqlmock.NewRows([]string{"id", "household_id"}).AddRow(1, testHouseholdID)
+	mock.ExpectQuery("SELECT \\* FROM pantry WHERE household_id").
+		WithArgs(testHouseholdID).
 		WillReturnRows(rows1)
 
 	// Get existing items
@@ -149,9 +149,9 @@ func TestUpdatePantry(t *testing.T) {
 	}
 
 	// Final GetPantry call
-	rows2 := sqlmock.NewRows([]string{"id", "user_id"}).AddRow(1, testUserID)
-	mock.ExpectQuery("SELECT \\* FROM pantry WHERE user_id").
-		WithArgs(testUserID).
+	rows2 := sqlmock.NewRows([]string{"id", "household_id"}).AddRow(1, testHouseholdID)
+	mock.ExpectQuery("SELECT \\* FROM pantry WHERE household_id").
+		WithArgs(testHouseholdID).
 		WillReturnRows(rows2)
 
 	rows3 := sqlmock.NewRows([]string{"item_name"}).AddRow("updated-item-1").AddRow("updated-item-2")
@@ -159,11 +159,11 @@ func TestUpdatePantry(t *testing.T) {
 		WithArgs(1).
 		WillReturnRows(rows3)
 
-	result, err := UpdatePantry(sqlxDB, testUserID, testPantry)
+	result, err := UpdatePantry(sqlxDB, testHouseholdID, testPantry)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, uint(1), result.ID)
-	assert.Equal(t, testUserID, result.UserID)
+	assert.Equal(t, testHouseholdID, result.HouseholdID)
 	assert.Equal(t, 2, len(result.Items))
 	assert.Equal(t, "updated-item-1", result.Items[0])
 	assert.Equal(t, "updated-item-2", result.Items[1])
@@ -183,12 +183,12 @@ func TestDeletePantry(t *testing.T) {
 
 	sqlxDB := sqlx.NewDb(db, "sqlmock")
 
-	testUserID := "test-user-id"
+	testHouseholdID := 42
 
 	// First GetPantry call
-	rows := sqlmock.NewRows([]string{"id", "user_id"}).AddRow(1, testUserID)
-	mock.ExpectQuery("SELECT \\* FROM pantry WHERE user_id").
-		WithArgs(testUserID).
+	rows := sqlmock.NewRows([]string{"id", "household_id"}).AddRow(1, testHouseholdID)
+	mock.ExpectQuery("SELECT \\* FROM pantry WHERE household_id").
+		WithArgs(testHouseholdID).
 		WillReturnRows(rows)
 
 	// GetPantryItems call from inside GetPantry
@@ -206,7 +206,7 @@ func TestDeletePantry(t *testing.T) {
 	// Note: The actual DeletePantry function doesn't delete the pantry record
 	// itself, it only deletes the pantry items
 
-	err = DeletePantry(sqlxDB, testUserID)
+	err = DeletePantry(sqlxDB, testHouseholdID)
 	assert.NoError(t, err)
 
 	// Ensure all expectations were met

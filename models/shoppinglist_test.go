@@ -26,14 +26,14 @@ func TestGetShoppingList(t *testing.T) {
 	defer sqlxDB.Close()
 
 	planID := 1
-	userID := "test-user"
+	householdID := 42
 	startDate := time.Now()
 	endDate := time.Now().Add(7 * 24 * time.Hour)
 
 	t.Run("success_existing_status", func(t *testing.T) {
 		// Mock for fetching plan
-		planRows := sqlmock.NewRows([]string{"id", "user_id", "start_date", "end_date"}).
-			AddRow(planID, userID, startDate, endDate)
+		planRows := sqlmock.NewRows([]string{"id", "household_id", "start_date", "end_date"}).
+			AddRow(planID, householdID, startDate, endDate)
 		mock.ExpectQuery(regexp.QuoteMeta("SELECT * FROM plans WHERE id = $1")).
 			WithArgs(planID).
 			WillReturnRows(planRows)
@@ -51,16 +51,15 @@ func TestGetShoppingList(t *testing.T) {
 		ingredientRows := sqlmock.NewRows([]string{"name", "amount"}).
 			AddRow("Flour", "1kg").
 			AddRow("Sugar", "500g")
-		// Assuming GetPlanIngredients has a query like this. Adjust if different.
-		mock.ExpectQuery(regexp.QuoteMeta("SELECT i.name, i.amount FROM meal_ingredients i JOIN plan_meals pm ON pm.meal_id = i.meal_id WHERE pm.plan_id=$1")).
-			WithArgs(planID).
+		mock.ExpectQuery(regexp.QuoteMeta("SELECT i.name, i.amount FROM meal_ingredients i JOIN plan_meals pm ON pm.meal_id = i.meal_id WHERE pm.plan_id=$1 AND pm.household_id=$2")).
+			WithArgs(planID, householdID).
 			WillReturnRows(ingredientRows)
 
 		list, err := GetShoppingList(sqlxDB, planID)
 		require.NoError(t, err)
 		assert.NotNil(t, list)
 		assert.Equal(t, planID, list.Plan.ID)
-		assert.Equal(t, userID, list.Plan.UserID)
+		assert.Equal(t, householdID, list.Plan.HouseholdID)
 		require.Len(t, list.Ingredients, 2)
 		assert.Equal(t, "Flour", list.Ingredients[0].Name)
 		assert.True(t, list.Ingredients[0].Checked) // Checked because it's in statusItems
@@ -72,8 +71,8 @@ func TestGetShoppingList(t *testing.T) {
 
 	t.Run("success_no_existing_status_creates_new", func(t *testing.T) {
 		// Mock for fetching plan
-		planRows := sqlmock.NewRows([]string{"id", "user_id", "start_date", "end_date"}).
-			AddRow(planID, userID, startDate, endDate)
+		planRows := sqlmock.NewRows([]string{"id", "household_id", "start_date", "end_date"}).
+			AddRow(planID, householdID, startDate, endDate)
 		mock.ExpectQuery(regexp.QuoteMeta("SELECT * FROM plans WHERE id = $1")).
 			WithArgs(planID).
 			WillReturnRows(planRows)
@@ -92,8 +91,8 @@ func TestGetShoppingList(t *testing.T) {
 		// Mock for GetPlanIngredients
 		ingredientRows := sqlmock.NewRows([]string{"name", "amount"}).
 			AddRow("Milk", "1L")
-		mock.ExpectQuery(regexp.QuoteMeta("SELECT i.name, i.amount FROM meal_ingredients i JOIN plan_meals pm ON pm.meal_id = i.meal_id WHERE pm.plan_id=$1")).
-			WithArgs(planID).
+		mock.ExpectQuery(regexp.QuoteMeta("SELECT i.name, i.amount FROM meal_ingredients i JOIN plan_meals pm ON pm.meal_id = i.meal_id WHERE pm.plan_id=$1 AND pm.household_id=$2")).
+			WithArgs(planID, householdID).
 			WillReturnRows(ingredientRows)
 
 		list, err := GetShoppingList(sqlxDB, planID)
@@ -120,8 +119,8 @@ func TestGetShoppingList(t *testing.T) {
 	})
 
 	t.Run("error_fetching_ingredients", func(t *testing.T) {
-		planRows := sqlmock.NewRows([]string{"id", "user_id", "start_date", "end_date"}).
-			AddRow(planID, userID, startDate, endDate)
+		planRows := sqlmock.NewRows([]string{"id", "household_id", "start_date", "end_date"}).
+			AddRow(planID, householdID, startDate, endDate)
 		mock.ExpectQuery(regexp.QuoteMeta("SELECT * FROM plans WHERE id = $1")).
 			WithArgs(planID).
 			WillReturnRows(planRows)
@@ -135,8 +134,8 @@ func TestGetShoppingList(t *testing.T) {
 			WithArgs(planID, emptyStatusJSON).
 			WillReturnResult(sqlmock.NewResult(1, 1))
 
-		mock.ExpectQuery(regexp.QuoteMeta("SELECT i.name, i.amount FROM meal_ingredients i JOIN plan_meals pm ON pm.meal_id = i.meal_id WHERE pm.plan_id=$1")).
-			WithArgs(planID).
+		mock.ExpectQuery(regexp.QuoteMeta("SELECT i.name, i.amount FROM meal_ingredients i JOIN plan_meals pm ON pm.meal_id = i.meal_id WHERE pm.plan_id=$1 AND pm.household_id=$2")).
+			WithArgs(planID, householdID).
 			WillReturnError(errors.New("db error fetching ingredients"))
 
 		list, err := GetShoppingList(sqlxDB, planID)
@@ -151,10 +150,10 @@ func TestUpdateShoppingList(t *testing.T) {
 	sqlxDB, mock := setupMockDB(t)
 	defer sqlxDB.Close()
 
-	userID := "test-user-update"
+	householdID := 42
 	planID := 2
 	listToUpdate := &ShoppingList{
-		Plan: Plan{ID: planID, UserID: userID}, // UserID in Plan is not used by UpdateShoppingList directly but good for consistency
+		Plan: Plan{ID: planID, HouseholdID: householdID},
 		Ingredients: []ShoppingListItem{
 			{Name: "Eggs", Amount: "12", Checked: true},
 			{Name: "Bacon", Amount: "500g", Checked: false},
@@ -164,8 +163,8 @@ func TestUpdateShoppingList(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		// Mock for plan validation
-		mock.ExpectQuery(regexp.QuoteMeta("SELECT id FROM plans WHERE id = $1 AND user_id = $2")).
-			WithArgs(planID, userID).
+		mock.ExpectQuery(regexp.QuoteMeta("SELECT id FROM plans WHERE id = $1 AND household_id = $2")).
+			WithArgs(planID, householdID).
 			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(planID))
 
 		// Mock for DB update
@@ -178,14 +177,14 @@ func TestUpdateShoppingList(t *testing.T) {
 			WithArgs(expectedStatusJSON, planID).
 			WillReturnResult(sqlmock.NewResult(1, 1))
 
-		err := UpdateShoppingList(sqlxDB, userID, listToUpdate)
+		err := UpdateShoppingList(sqlxDB, householdID, listToUpdate)
 		require.NoError(t, err)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	t.Run("error_invalid_plan_id", func(t *testing.T) {
 		invalidList := &ShoppingList{Plan: Plan{ID: 0}} // Invalid Plan ID
-		err := UpdateShoppingList(sqlxDB, userID, invalidList)
+		err := UpdateShoppingList(sqlxDB, householdID, invalidList)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid plan ID")
 		// No DB calls expected
@@ -193,19 +192,19 @@ func TestUpdateShoppingList(t *testing.T) {
 	})
 
 	t.Run("error_plan_not_found_or_unauthorized", func(t *testing.T) {
-		mock.ExpectQuery(regexp.QuoteMeta("SELECT id FROM plans WHERE id = $1 AND user_id = $2")).
-			WithArgs(planID, userID).
+		mock.ExpectQuery(regexp.QuoteMeta("SELECT id FROM plans WHERE id = $1 AND household_id = $2")).
+			WithArgs(planID, householdID).
 			WillReturnError(sql.ErrNoRows) // Simulate plan not found or not matching user
 
-		err := UpdateShoppingList(sqlxDB, userID, listToUpdate)
+		err := UpdateShoppingList(sqlxDB, householdID, listToUpdate)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "plan not found or unauthorized")
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	t.Run("error_db_update_fails", func(t *testing.T) {
-		mock.ExpectQuery(regexp.QuoteMeta("SELECT id FROM plans WHERE id = $1 AND user_id = $2")).
-			WithArgs(planID, userID).
+		mock.ExpectQuery(regexp.QuoteMeta("SELECT id FROM plans WHERE id = $1 AND household_id = $2")).
+			WithArgs(planID, householdID).
 			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(planID))
 
 		expectedStatusItems := []StatusItem{
@@ -217,7 +216,7 @@ func TestUpdateShoppingList(t *testing.T) {
 			WithArgs(expectedStatusJSON, planID).
 			WillReturnError(errors.New("db update failed"))
 
-		err := UpdateShoppingList(sqlxDB, userID, listToUpdate)
+		err := UpdateShoppingList(sqlxDB, householdID, listToUpdate)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "db update failed")
 		require.NoError(t, mock.ExpectationsWereMet())

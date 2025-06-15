@@ -11,18 +11,26 @@ import (
 )
 
 type Pantry struct {
-	ID     uint     `db:"id" json:"id"`
-	UserID string   `db:"user_id" json:"user_id"`
-	Items  []string `json:"items"`
+	ID          uint     `db:"id" json:"id"`
+	HouseholdID int      `db:"household_id" json:"household_id"`
+	Items       []string `json:"items"`
 }
 
-func GetPantry(db *sqlx.DB, userID string) (*Pantry, error) {
+func GetPantry(db *sqlx.DB, householdID int) (*Pantry, error) {
 	pantry := Pantry{}
 
-	err := db.Get(&pantry, "SELECT * FROM pantry WHERE user_id = $1", userID)
+	err := db.Get(&pantry, "SELECT * FROM pantry WHERE household_id = $1", householdID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return &pantry, nil
+			return CreatePantry(db, householdID, &Pantry{
+				Items: []string{
+					"salt",
+					"pepper",
+					"olive oil",
+					"butter",
+					"flour",
+					"sugar",
+				}})
 		}
 		fmt.Println("1", err)
 		return nil, err
@@ -37,27 +45,27 @@ func GetPantry(db *sqlx.DB, userID string) (*Pantry, error) {
 	return &pantry, nil
 }
 
-func CreatePantry(db *sqlx.DB, userId string, pantry *Pantry) (*Pantry, error) {
-	pantry.UserID = userId
+func CreatePantry(db *sqlx.DB, householdID int, pantry *Pantry) (*Pantry, error) {
+	pantry.HouseholdID = householdID
 
-	_, err := db.Exec(`INSERT INTO pantry (user_id) VALUES ($1)`, pantry.UserID)
+	_, err := db.Exec(`INSERT INTO pantry (household_id) VALUES ($1)`, pantry.HouseholdID)
 	if err != nil {
 		fmt.Println(err)
 		var pgErr *pq.Error
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			// Handle unique constraint violation
 			fmt.Println("pgError", pgErr)
-			return UpdatePantry(db, userId, pantry)
+			return UpdatePantry(db, householdID, pantry)
 		}
 		return nil, err
 	}
 
-	return UpdatePantry(db, userId, pantry)
+	return UpdatePantry(db, householdID, pantry)
 }
 
-func UpdatePantry(db *sqlx.DB, userId string, pantry *Pantry) (*Pantry, error) {
+func UpdatePantry(db *sqlx.DB, householdID int, pantry *Pantry) (*Pantry, error) {
 
-	user_pantry, err := GetPantry(db, userId)
+	user_pantry, err := GetPantry(db, householdID)
 	if err != nil {
 		return nil, err
 	}
@@ -81,11 +89,11 @@ func UpdatePantry(db *sqlx.DB, userId string, pantry *Pantry) (*Pantry, error) {
 		}
 	}
 
-	return GetPantry(db, userId)
+	return GetPantry(db, householdID)
 }
 
-func DeletePantry(db *sqlx.DB, userId string) error {
-	pantry, err := GetPantry(db, userId)
+func DeletePantry(db *sqlx.DB, householdID int) error {
+	pantry, err := GetPantry(db, householdID)
 	if err != nil {
 		return err
 	}

@@ -177,8 +177,8 @@ components:
         end_date:
           type: string
           format: date
-        user_id:
-          type: string
+        household_id:
+          type: integer
         meals:
           type: array
           items:
@@ -187,7 +187,7 @@ components:
       required:
         - start_date
         - end_date
-        - user_id
+        - household_id
 
     Pantry:
       type: object
@@ -195,14 +195,14 @@ components:
         id:
           type: integer
           format: uint
-        user_id:
-          type: string
+        household_id:
+          type: integer
         items:
           type: array
           items:
             type: string
       required:
-        - user_id
+        - household_id
         - items
 
     ShoppingListItem: # Schema for items in the shopping list
@@ -245,6 +245,33 @@ components:
       required:
         - plan_id
         - ingredients
+
+    HouseholdJoinCode:
+      type: object
+      properties:
+        code:
+          type: string
+        household_id:
+          type: integer
+        expires_at:
+          type: string
+          format: date-time
+
+    HouseholdJoinRequest:
+      type: object
+      properties:
+        code:
+          type: string
+      required:
+        - code
+
+    HouseholdRemoveMemberRequest:
+      type: object
+      properties:
+        user_id:
+          type: string
+      required:
+        - user_id
 
 paths:
   /recipes:
@@ -1167,6 +1194,122 @@ paths:
                   type: string
         '500':
           description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /household/join-code:
+    post:
+      summary: Generate a join code for the current household
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Join code generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HouseholdJoinCode'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /household/join:
+    post:
+      summary: Join a household using a join code
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HouseholdJoinRequest'
+      responses:
+        '204':
+          description: Joined household
+        '400':
+          description: Invalid code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /household/leave:
+    post:
+      summary: Leave the current household
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Left household
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /household/remove-member:
+    post:
+      summary: Remove a member from the household
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HouseholdRemoveMemberRequest'
+      responses:
+        '204':
+          description: Member removed
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /household:
+    get:
+      summary: Get the current user's household
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Household object including members
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  members:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          description: Unauthorized
           content:
             application/json:
               schema:

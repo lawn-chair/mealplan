@@ -79,15 +79,15 @@ export interface Meal {
 
 export interface Plan {
   id?: number;
-  start_date: string; // Consider using Date type and formatting before sending
-  end_date: string;   // Consider using Date type and formatting before sending
-  user_id?: string;
+  start_date: string;
+  end_date: string;
+  household_id?: number;
   meals: number[];
 }
 
 export interface Pantry {
   id?: number;
-  user_id?: string;
+  household_id?: number;
   items: string[];
 }
 
@@ -103,9 +103,31 @@ export interface ShoppingList {
 }
 
 export interface ShoppingListUpdatePayload {
-  plan: { id: number }; 
+  plan_id: number;
   ingredients: ShoppingListItem[];
 }
+
+// Household management types
+export interface HouseholdJoinCode {
+  code: string;
+  household_id: number;
+  expires_at: string;
+}
+
+export interface HouseholdJoinRequest {
+  code: string;
+}
+
+export interface HouseholdRemoveMemberRequest {
+  user_id: string;
+}
+
+export interface Household {
+  id: number;
+  name: string;
+  members: string[];
+}
+
 
 const apiClient = setupCache(axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
@@ -158,10 +180,10 @@ export const getUpcomingPlans = (): Promise<AxiosResponse<Plan[]>> =>
 export const getPlanById = (id: number): Promise<AxiosResponse<Plan>> =>
   apiClient.get(`/plans/${id}`, { cache: {} });
 
-export const createPlan = (planData: Omit<Plan, 'id' | 'user_id'>): Promise<AxiosResponse<Plan>> =>
+export const createPlan = (planData: Omit<Plan, 'id'>): Promise<AxiosResponse<Plan>> =>
   apiClient.post('/plans', planData, { cache: { update: { [PLANS_LIST_ID]: 'delete' } } });
 
-export const updatePlan = (id: number, planData: Partial<Omit<Plan, 'id' | 'user_id'>>): Promise<AxiosResponse<Plan>> =>
+export const updatePlan = (id: number, planData: Partial<Omit<Plan, 'id'>>): Promise<AxiosResponse<Plan>> =>
   apiClient.put(`/plans/${id}`, planData, { cache: { update: { [PLANS_LIST_ID]: 'delete' } } });
 
 export const deletePlan = (id: number): Promise<AxiosResponse<void>> =>
@@ -184,5 +206,12 @@ export const uploadImage = (formData: FormData): Promise<AxiosResponse<{ url: st
 });
 
 export const getTags = (): Promise<AxiosResponse<string[]>> => apiClient.get('/tags');
+
+// Household management API
+export const generateHouseholdJoinCode = (): Promise<AxiosResponse<HouseholdJoinCode>> => apiClient.post('/household/join-code');
+export const joinHousehold = (code: string): Promise<AxiosResponse<void>> => apiClient.post('/household/join', { code });
+export const leaveHousehold = (): Promise<AxiosResponse<void>> => apiClient.post('/household/leave');
+export const removeHouseholdMember = (user_id: string): Promise<AxiosResponse<void>> => apiClient.post('/household/remove-member', { user_id });
+export const getHousehold = (): Promise<AxiosResponse<Household>> => apiClient.get('/household');
 
 export default apiClient;

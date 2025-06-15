@@ -20,13 +20,18 @@ func TestGetPantryHandler(t *testing.T) {
 	defer sqlxDB.Close()
 
 	// Setup mock authentication
-	testUserID := "test-user-id"
-	mockUser := &clerk.User{ID: testUserID}
+	testHouseholdID := 42
+	mockUser := &clerk.User{ID: "test-user-id"}
+
+	// Mock household lookup for user
+	mock.ExpectQuery("SELECT household_id FROM household_members WHERE user_id = \\$1").
+		WithArgs(mockUser.ID).
+		WillReturnRows(sqlmock.NewRows([]string{"household_id"}).AddRow(testHouseholdID))
 
 	// Mock for GetPantry
-	rows := sqlmock.NewRows([]string{"id", "user_id"}).AddRow(1, testUserID)
-	mock.ExpectQuery("SELECT \\* FROM pantry WHERE user_id").
-		WithArgs(testUserID).
+	rows := sqlmock.NewRows([]string{"id", "household_id"}).AddRow(1, testHouseholdID)
+	mock.ExpectQuery("SELECT \\* FROM pantry WHERE household_id").
+		WithArgs(testHouseholdID).
 		WillReturnRows(rows)
 
 	// Mock for pantry items
@@ -38,29 +43,23 @@ func TestGetPantryHandler(t *testing.T) {
 		WithArgs(1).
 		WillReturnRows(itemRows)
 
-	// Create request
 	req := httptest.NewRequest("GET", "/api/pantry", nil)
 	rec := httptest.NewRecorder()
 
-	// Set up context with mocked DB and authenticated user
 	ctx := context.WithValue(req.Context(), "db", sqlxDB)
-	ctx = context.WithValue(ctx, "user", mockUser) // Simulate middleware
+	ctx = context.WithValue(ctx, "user", mockUser)
 	req = req.WithContext(ctx)
 
-	// Call the handler
 	GetPantryHandler(rec, req)
 
-	// Verify response
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	// Parse the response body
 	var pantry models.Pantry
 	err := json.Unmarshal(rec.Body.Bytes(), &pantry)
 	require.NoError(t, err)
 
-	// Verify response data
 	assert.Equal(t, uint(1), pantry.ID)
-	assert.Equal(t, testUserID, pantry.UserID)
+	assert.Equal(t, testHouseholdID, pantry.HouseholdID)
 	assert.Len(t, pantry.Items, 3)
 	assert.Equal(t, "salt", pantry.Items[0])
 	assert.Equal(t, "pepper", pantry.Items[1])
@@ -72,8 +71,13 @@ func TestUpdatePantryHandler(t *testing.T) {
 	defer sqlxDB.Close()
 
 	// Setup mock authentication
-	testUserID := "test-user-id"
-	mockUser := &clerk.User{ID: testUserID}
+	testHouseholdID := 42
+	mockUser := &clerk.User{ID: "test-user-id"}
+
+	// Mock household lookup for user
+	mock.ExpectQuery("SELECT household_id FROM household_members WHERE user_id = \\$1").
+		WithArgs(mockUser.ID).
+		WillReturnRows(sqlmock.NewRows([]string{"household_id"}).AddRow(testHouseholdID))
 
 	// Create test pantry for update
 	updatePantry := models.Pantry{
@@ -81,9 +85,9 @@ func TestUpdatePantryHandler(t *testing.T) {
 	}
 
 	// Mock for GetPantry inside UpdatePantry
-	rows := sqlmock.NewRows([]string{"id", "user_id"}).AddRow(1, testUserID)
-	mock.ExpectQuery("SELECT \\* FROM pantry WHERE user_id").
-		WithArgs(testUserID).
+	rows := sqlmock.NewRows([]string{"id", "household_id"}).AddRow(1, testHouseholdID)
+	mock.ExpectQuery("SELECT \\* FROM pantry WHERE household_id").
+		WithArgs(testHouseholdID).
 		WillReturnRows(rows)
 
 	// Mock for existing pantry items
@@ -106,9 +110,9 @@ func TestUpdatePantryHandler(t *testing.T) {
 	}
 
 	// Mock final GetPantry call
-	finalRows := sqlmock.NewRows([]string{"id", "user_id"}).AddRow(1, testUserID)
-	mock.ExpectQuery("SELECT \\* FROM pantry WHERE user_id").
-		WithArgs(testUserID).
+	finalRows := sqlmock.NewRows([]string{"id", "household_id"}).AddRow(1, testHouseholdID)
+	mock.ExpectQuery("SELECT \\* FROM pantry WHERE household_id").
+		WithArgs(testHouseholdID).
 		WillReturnRows(finalRows)
 
 	// Mock for updated pantry items
@@ -146,7 +150,7 @@ func TestUpdatePantryHandler(t *testing.T) {
 
 	// Verify response data
 	assert.Equal(t, uint(1), updatedPantry.ID)
-	assert.Equal(t, testUserID, updatedPantry.UserID)
+	assert.Equal(t, testHouseholdID, updatedPantry.HouseholdID)
 	assert.Len(t, updatedPantry.Items, 3)
 	assert.Contains(t, updatedPantry.Items, "flour")
 	assert.Contains(t, updatedPantry.Items, "sugar")
@@ -158,8 +162,13 @@ func TestCreatePantryHandler(t *testing.T) {
 	defer sqlxDB.Close()
 
 	// Setup mock authentication
-	testUserID := "test-user-id"
-	mockUser := &clerk.User{ID: testUserID}
+	testHouseholdID := 42
+	mockUser := &clerk.User{ID: "test-user-id"}
+
+	// Mock household lookup for user
+	mock.ExpectQuery("SELECT household_id FROM household_members WHERE user_id = \\$1").
+		WithArgs(mockUser.ID).
+		WillReturnRows(sqlmock.NewRows([]string{"household_id"}).AddRow(testHouseholdID))
 
 	// Create test pantry
 	newPantry := models.Pantry{
@@ -168,13 +177,13 @@ func TestCreatePantryHandler(t *testing.T) {
 
 	// Mock for INSERT into pantry
 	mock.ExpectExec("INSERT INTO pantry").
-		WithArgs(testUserID).
+		WithArgs(testHouseholdID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	// Mock for GetPantry inside UpdatePantry (called by CreatePantry)
-	rows := sqlmock.NewRows([]string{"id", "user_id"}).AddRow(1, testUserID)
-	mock.ExpectQuery("SELECT \\* FROM pantry WHERE user_id").
-		WithArgs(testUserID).
+	rows := sqlmock.NewRows([]string{"id", "household_id"}).AddRow(1, testHouseholdID)
+	mock.ExpectQuery("SELECT \\* FROM pantry WHERE household_id").
+		WithArgs(testHouseholdID).
 		WillReturnRows(rows)
 
 	// Mock for existing pantry items (empty at first)
@@ -195,9 +204,9 @@ func TestCreatePantryHandler(t *testing.T) {
 	}
 
 	// Mock final GetPantry call
-	finalRows := sqlmock.NewRows([]string{"id", "user_id"}).AddRow(1, testUserID)
-	mock.ExpectQuery("SELECT \\* FROM pantry WHERE user_id").
-		WithArgs(testUserID).
+	finalRows := sqlmock.NewRows([]string{"id", "household_id"}).AddRow(1, testHouseholdID)
+	mock.ExpectQuery("SELECT \\* FROM pantry WHERE household_id").
+		WithArgs(testHouseholdID).
 		WillReturnRows(finalRows)
 
 	// Mock for updated pantry items
@@ -235,7 +244,7 @@ func TestCreatePantryHandler(t *testing.T) {
 
 	// Verify response data
 	assert.Equal(t, uint(1), createdPantry.ID)
-	assert.Equal(t, testUserID, createdPantry.UserID)
+	assert.Equal(t, testHouseholdID, createdPantry.HouseholdID)
 	assert.Len(t, createdPantry.Items, 3)
 	assert.Contains(t, createdPantry.Items, "apple")
 	assert.Contains(t, createdPantry.Items, "banana")
@@ -247,13 +256,18 @@ func TestDeletePantryHandler(t *testing.T) {
 	defer sqlxDB.Close()
 
 	// Setup mock authentication
-	testUserID := "test-user-id"
-	mockUser := &clerk.User{ID: testUserID}
+	testHouseholdID := 42
+	mockUser := &clerk.User{ID: "test-user-id"}
+
+	// Mock household lookup for user
+	mock.ExpectQuery("SELECT household_id FROM household_members WHERE user_id = \\$1").
+		WithArgs(mockUser.ID).
+		WillReturnRows(sqlmock.NewRows([]string{"household_id"}).AddRow(testHouseholdID))
 
 	// Mock for GetPantry inside DeletePantry
-	rows := sqlmock.NewRows([]string{"id", "user_id"}).AddRow(1, testUserID)
-	mock.ExpectQuery("SELECT \\* FROM pantry WHERE user_id").
-		WithArgs(testUserID).
+	rows := sqlmock.NewRows([]string{"id", "household_id"}).AddRow(1, testHouseholdID)
+	mock.ExpectQuery("SELECT \\* FROM pantry WHERE household_id").
+		WithArgs(testHouseholdID).
 		WillReturnRows(rows)
 
 	// Mock for pantry items

@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/clerk/clerk-sdk-go/v2"
 	"github.com/jmoiron/sqlx"
 	"github.com/lawn-chair/mealplan/models"
 )
@@ -23,15 +22,15 @@ func filter[T any](ss *[]T, test func(T) bool) *[]T {
 
 func GetShoppingList(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
-	user := r.Context().Value("user").(*clerk.User)
+	householdID := r.Context().Value("household").(int)
 
-	plan, err := models.GetNextPlan(db, user.ID)
+	plan, err := models.GetNextPlan(db, householdID)
 	if err != nil {
 		ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	pantry, err := models.GetPantry(db, user.ID)
+	pantry, err := models.GetPantry(db, householdID)
 	if err != nil {
 		ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		return
@@ -54,7 +53,7 @@ func GetShoppingList(w http.ResponseWriter, r *http.Request) {
 
 func UpdateShoppingList(w http.ResponseWriter, r *http.Request) {
 	db := r.Context().Value("db").(*sqlx.DB)
-	user := r.Context().Value("user").(*clerk.User)
+	householdID := r.Context().Value("household").(int)
 
 	var list models.ShoppingList
 	if err := json.NewDecoder(r.Body).Decode(&list); err != nil {
@@ -62,7 +61,7 @@ func UpdateShoppingList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := models.UpdateShoppingList(db, user.ID, &list); err != nil {
+	if err := models.UpdateShoppingList(db, householdID, &list); err != nil {
 		ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

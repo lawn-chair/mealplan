@@ -90,6 +90,7 @@ func main() {
 		})
 
 		apir.Route("/plans", func(plans chi.Router) {
+			plans.Use(AuthCtx)
 			plans.Get("/", api.GetPlans)
 			plans.Post("/", api.CreatePlan)
 			plans.Route("/{id}", func(plan chi.Router) {
@@ -110,6 +111,15 @@ func main() {
 		apir.Get("/tags", api.ListTagsHandler)
 
 		apir.Post("/images", api.PostImageHandler)
+
+		apir.Route("/household", func(household chi.Router) {
+			household.Use(AuthCtx)
+			household.Get("/", api.GetUserHouseholdHandler)
+			household.Post("/join-code", api.GenerateJoinCodeHandler)
+			household.Post("/join", api.JoinHouseholdHandler)
+			household.Post("/leave", api.LeaveHouseholdHandler)
+			household.Post("/remove-member", api.RemoveHouseholdMemberHandler)
+		})
 	})
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
@@ -148,7 +158,16 @@ func AuthCtx(next http.Handler) http.Handler {
 			api.ErrorResponse(w, "Unauthorized request", http.StatusUnauthorized)
 			return
 		}
+
+		db := r.Context().Value("db").(*sqlx.DB)
+		householdID, err := api.GetHouseholdIDForUser(db, user.ID)
+		if err != nil {
+			api.ErrorResponse(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
 		ctx := context.WithValue(r.Context(), "user", user)
+		ctx = context.WithValue(ctx, "household", householdID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

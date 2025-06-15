@@ -21,60 +21,57 @@ func TestGetPlans(t *testing.T) {
 	defer sqlxDB.Close()
 
 	t.Run("Get all plans", func(t *testing.T) {
-		// Set up mock expectations
 		startDate := time.Now().AddDate(0, 0, 1)
 		endDate := time.Now().AddDate(0, 0, 7)
-		rows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "user_id"}).
-			AddRow(1, startDate, endDate, "user1").
-			AddRow(2, startDate.AddDate(0, 0, 7), endDate.AddDate(0, 0, 7), "user2")
+		testUserID := "user1"
+		householdID := 42
+		mockUser := &clerk.User{ID: testUserID}
 
-		mock.ExpectQuery("SELECT \\* FROM plans").
+		// Household lookup expectation
+		rows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "household_id"}).
+			AddRow(1, startDate, endDate, 42).
+			AddRow(2, startDate.AddDate(0, 0, 7), endDate.AddDate(0, 0, 7), 43)
+
+		mock.ExpectQuery("SELECT \\* FROM plans WHERE household_id").
+			WithArgs(42).
 			WillReturnRows(rows)
 
-		// Create request
 		req := httptest.NewRequest("GET", "/api/plans", nil)
 		rec := httptest.NewRecorder()
 
-		// Set up context with mocked DB
 		ctx := context.WithValue(req.Context(), "db", sqlxDB)
+		ctx = context.WithValue(ctx, "user", mockUser)
+		ctx = context.WithValue(ctx, "household", householdID)
+
 		req = req.WithContext(ctx)
 
-		// Call the handler
 		GetPlans(rec, req)
 
-		// Verify response
 		assert.Equal(t, http.StatusOK, rec.Code)
 
-		// Parse the response body
 		var response []models.Plan
 		err := json.Unmarshal(rec.Body.Bytes(), &response)
 		require.NoError(t, err)
 
-		// Verify response data
 		assert.Len(t, response, 2)
-		assert.Equal(t, "user1", response[0].UserID)
-		assert.Equal(t, "user2", response[1].UserID)
+		assert.Equal(t, 42, response[0].HouseholdID)
+		assert.Equal(t, 43, response[1].HouseholdID)
 	})
 
 	t.Run("Get last plan", func(t *testing.T) {
 		// Setup mock authentication
-		mockAuthFunc := func(r *http.Request) (*clerk.User, error) {
-			return &clerk.User{ID: "user1"}, nil
-		}
-
-		// Save original RequiresAuthentication function and restore it after the test
-		originalFunc := RequiresAuthentication
-		RequiresAuthentication = mockAuthFunc
-		defer func() { RequiresAuthentication = originalFunc }()
+		testUserID := "user1"
+		householdID := 42
+		mockUser := &clerk.User{ID: testUserID}
 
 		// Set up mock expectations for GetLastPlan
 		startDate := time.Now().AddDate(0, 0, -7)
 		endDate := time.Now().AddDate(0, 0, -1)
-		rows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "user_id"}).
-			AddRow(1, startDate, endDate, "user1")
+		rows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "household_id"}).
+			AddRow(1, startDate, endDate, householdID)
 
-		mock.ExpectQuery("SELECT \\* FROM plans WHERE user_id").
-			WithArgs("user1").
+		mock.ExpectQuery("SELECT \\* FROM plans WHERE household_id").
+			WithArgs(householdID).
 			WillReturnRows(rows)
 
 		// Create request with last query parameter
@@ -83,6 +80,8 @@ func TestGetPlans(t *testing.T) {
 
 		// Set up context with mocked DB
 		ctx := context.WithValue(req.Context(), "db", sqlxDB)
+		ctx = context.WithValue(ctx, "user", mockUser)
+		ctx = context.WithValue(ctx, "household", householdID)
 		req = req.WithContext(ctx)
 
 		// Call the handler
@@ -98,28 +97,23 @@ func TestGetPlans(t *testing.T) {
 
 		// Verify response data
 		assert.Equal(t, 1, plan.ID)
-		assert.Equal(t, "user1", plan.UserID)
+		assert.Equal(t, 42, plan.HouseholdID)
 	})
 
 	t.Run("Get next plan", func(t *testing.T) {
 		// Setup mock authentication
-		mockAuthFunc := func(r *http.Request) (*clerk.User, error) {
-			return &clerk.User{ID: "user1"}, nil
-		}
-
-		// Save original RequiresAuthentication function and restore it after the test
-		originalFunc := RequiresAuthentication
-		RequiresAuthentication = mockAuthFunc
-		defer func() { RequiresAuthentication = originalFunc }()
+		testUserID := "user1"
+		householdID := 42
+		mockUser := &clerk.User{ID: testUserID}
 
 		// Set up mock expectations for GetNextPlan
 		startDate := time.Now().AddDate(0, 0, 1)
 		endDate := time.Now().AddDate(0, 0, 7)
-		rows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "user_id"}).
-			AddRow(1, startDate, endDate, "user1")
+		rows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "household_id"}).
+			AddRow(1, startDate, endDate, householdID)
 
-		mock.ExpectQuery("SELECT \\* FROM plans WHERE user_id").
-			WithArgs("user1").
+		mock.ExpectQuery("SELECT \\* FROM plans WHERE household_id").
+			WithArgs(householdID).
 			WillReturnRows(rows)
 
 		// Create request with next query parameter
@@ -128,6 +122,8 @@ func TestGetPlans(t *testing.T) {
 
 		// Set up context with mocked DB
 		ctx := context.WithValue(req.Context(), "db", sqlxDB)
+		ctx = context.WithValue(ctx, "user", mockUser)
+		ctx = context.WithValue(ctx, "household", householdID)
 		req = req.WithContext(ctx)
 
 		// Call the handler
@@ -143,46 +139,56 @@ func TestGetPlans(t *testing.T) {
 
 		// Verify response data
 		assert.Equal(t, 1, plan.ID)
-		assert.Equal(t, "user1", plan.UserID)
+		assert.Equal(t, 42, plan.HouseholdID)
 	})
 
 	t.Run("Get future plans", func(t *testing.T) {
+		// Setup mock authentication
+		testUserID := "user1"
+		householdID := 42
+		mockUser := &clerk.User{ID: testUserID}
+
 		// Set up mock expectations for GetFuturePlans
-		startDate1 := time.Now().AddDate(0, 0, 1)
-		endDate1 := time.Now().AddDate(0, 0, 7)
-		startDate2 := time.Now().AddDate(0, 0, 8)
-		endDate2 := time.Now().AddDate(0, 0, 14)
+		// First, mock the plan IDs query (should only return 'id' column)
+		planIDRows := sqlmock.NewRows([]string{"id"}).
+			AddRow(1).
+			AddRow(2)
+		mock.ExpectQuery("SELECT id FROM plans WHERE end_date >").
+			WithArgs(householdID).
+			WillReturnRows(planIDRows)
 
-		rows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "user_id"}).
-			AddRow(1, startDate1, endDate1, "user1").
-			AddRow(2, startDate2, endDate2, "user2")
-
-		mock.ExpectQuery("SELECT \\* FROM plans WHERE end_date").
-			WillReturnRows(rows)
+		// Then, mock the full plan fetch for each ID
+		rows1 := sqlmock.NewRows([]string{"id", "start_date", "end_date", "household_id"}).
+			AddRow(1, time.Now().AddDate(0, 0, 1), time.Now().AddDate(0, 0, 7), householdID)
+		mock.ExpectQuery("SELECT \\* FROM plans WHERE id").
+			WithArgs(1).
+			WillReturnRows(rows1)
+		rows2 := sqlmock.NewRows([]string{"id", "plan_id", "meal_id"}).
+			AddRow(1, 1, 101).
+			AddRow(2, 1, 102)
+		mock.ExpectQuery("SELECT \\* FROM plan_meals WHERE plan_id").
+			WithArgs(1).
+			WillReturnRows(rows2)
 
 		// Create request with future query parameter
 		req := httptest.NewRequest("GET", "/api/plans?future=true", nil)
 		rec := httptest.NewRecorder()
 
-		// Set up context with mocked DB
 		ctx := context.WithValue(req.Context(), "db", sqlxDB)
+		ctx = context.WithValue(ctx, "user", mockUser)
+		ctx = context.WithValue(ctx, "household", householdID)
 		req = req.WithContext(ctx)
 
-		// Call the handler
 		GetPlans(rec, req)
 
-		// Verify response
 		assert.Equal(t, http.StatusOK, rec.Code)
 
-		// Parse the response body
 		var plans []models.Plan
 		err := json.Unmarshal(rec.Body.Bytes(), &plans)
 		require.NoError(t, err)
 
-		// Verify response data
-		assert.Len(t, plans, 2)
-		assert.Equal(t, "user1", plans[0].UserID)
-		assert.Equal(t, "user2", plans[1].UserID)
+		assert.Len(t, plans, 1)
+		assert.Equal(t, householdID, plans[0].HouseholdID)
 	})
 }
 
@@ -193,8 +199,8 @@ func TestGetPlan(t *testing.T) {
 	// Set up mock expectations for GetPlan
 	startDate := time.Now().AddDate(0, 0, 1)
 	endDate := time.Now().AddDate(0, 0, 7)
-	rows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "user_id"}).
-		AddRow(1, startDate, endDate, "user1")
+	rows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "household_id"}).
+		AddRow(1, startDate, endDate, 42)
 
 	mock.ExpectQuery("SELECT \\* FROM plans WHERE id").
 		WithArgs(1).
@@ -212,9 +218,10 @@ func TestGetPlan(t *testing.T) {
 	req := httptest.NewRequest("GET", "/api/plans/1", nil)
 	rec := httptest.NewRecorder()
 
-	// Set up context with mocked DB and ID
+	// Set up context with mocked DB, ID, and household
 	ctx := context.WithValue(req.Context(), "db", sqlxDB)
 	ctx = context.WithValue(ctx, "id", 1)
+	ctx = context.WithValue(ctx, "household", 42)
 	req = req.WithContext(ctx)
 
 	// Call the handler
@@ -230,7 +237,7 @@ func TestGetPlan(t *testing.T) {
 
 	// Verify response data
 	assert.Equal(t, 1, plan.ID)
-	assert.Equal(t, "user1", plan.UserID)
+	assert.Equal(t, 42, plan.HouseholdID)
 	assert.Equal(t, 2, len(plan.Meals))
 }
 
@@ -252,19 +259,19 @@ func TestCreatePlan(t *testing.T) {
 	startDate := time.Now().AddDate(0, 0, 1)
 	endDate := time.Now().AddDate(0, 0, 7)
 	newPlan := models.Plan{
-		StartDate: models.Date{Time: startDate},
-		EndDate:   models.Date{Time: endDate},
-		UserID:    "user1",
-		Meals:     []int{101, 102},
+		StartDate:   models.Date{Time: startDate},
+		EndDate:     models.Date{Time: endDate},
+		HouseholdID: 42,
+		Meals:       []int{101, 102},
 	}
 
 	// Mock for CreatePlan
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO plans").
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), "user1").
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), 42).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectQuery("SELECT id FROM plans WHERE start_date").
-		WithArgs(sqlmock.AnyArg(), "user1").
+		WithArgs(sqlmock.AnyArg(), 42).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 	mock.ExpectCommit()
 
@@ -281,8 +288,8 @@ func TestCreatePlan(t *testing.T) {
 	mock.ExpectCommit()
 
 	// For the returned plan after creation (GetPlan call)
-	rows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "user_id"}).
-		AddRow(1, startDate, endDate, "user1")
+	rows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "household_id"}).
+		AddRow(1, startDate, endDate, 42)
 	mock.ExpectQuery("SELECT \\* FROM plans WHERE id").
 		WithArgs(1).
 		WillReturnRows(rows)
@@ -304,6 +311,8 @@ func TestCreatePlan(t *testing.T) {
 
 	// Set up context with mocked DB
 	ctx := context.WithValue(req.Context(), "db", sqlxDB)
+	ctx = context.WithValue(ctx, "household", 42)
+	ctx = context.WithValue(ctx, "user", &clerk.User{ID: "user1"})
 	req = req.WithContext(ctx)
 
 	// Call the handler
@@ -319,7 +328,7 @@ func TestCreatePlan(t *testing.T) {
 
 	// Verify response data
 	assert.Equal(t, 1, createdPlan.ID)
-	assert.Equal(t, "user1", createdPlan.UserID)
+	assert.Equal(t, 42, createdPlan.HouseholdID)
 	assert.Equal(t, 2, len(createdPlan.Meals))
 }
 
@@ -340,8 +349,8 @@ func TestUpdatePlan(t *testing.T) {
 	// First mock for getting the existing plan for authorization check
 	startDate := time.Now().AddDate(0, 0, 1)
 	endDate := time.Now().AddDate(0, 0, 7)
-	existingPlanRows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "user_id"}).
-		AddRow(1, startDate, endDate, "user1")
+	existingPlanRows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "household_id"}).
+		AddRow(1, startDate, endDate, 42)
 
 	mock.ExpectQuery("SELECT \\* FROM plans WHERE id").
 		WithArgs(1).
@@ -356,11 +365,10 @@ func TestUpdatePlan(t *testing.T) {
 
 	// Create an updated plan
 	updatePlan := models.Plan{
-		ID:        1,
-		StartDate: models.Date{Time: time.Now().AddDate(0, 0, 2)},
-		EndDate:   models.Date{Time: time.Now().AddDate(0, 0, 9)},
-		UserID:    "user1",
-		Meals:     []int{201, 202},
+		StartDate:   models.Date{Time: time.Now().AddDate(0, 0, 2)},
+		EndDate:     models.Date{Time: time.Now().AddDate(0, 0, 9)},
+		HouseholdID: 42,
+		Meals:       []int{201, 202},
 	}
 
 	// Mock for UpdatePlan - it only updates meals, not the plan dates
@@ -376,8 +384,8 @@ func TestUpdatePlan(t *testing.T) {
 	mock.ExpectCommit()
 
 	// For the returned plan after update (GetPlan call) - returns original dates
-	updatedPlanRows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "user_id"}).
-		AddRow(1, startDate, endDate, "user1")
+	updatedPlanRows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "household_id"}).
+		AddRow(1, startDate, endDate, 42)
 
 	mock.ExpectQuery("SELECT \\* FROM plans WHERE id").
 		WithArgs(1).
@@ -398,9 +406,11 @@ func TestUpdatePlan(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	// Set up context with mocked DB and ID
+	// Set up context with mocked DB, ID, and household
 	ctx := context.WithValue(req.Context(), "db", sqlxDB)
 	ctx = context.WithValue(ctx, "id", 1)
+	ctx = context.WithValue(ctx, "household", 42)
+	ctx = context.WithValue(ctx, "user", &clerk.User{ID: "user1"})
 	req = req.WithContext(ctx)
 
 	// Call the handler
@@ -416,7 +426,7 @@ func TestUpdatePlan(t *testing.T) {
 
 	// Verify response data - UpdatePlan only updates meals, not dates
 	assert.Equal(t, 1, updatedPlan.ID)
-	assert.Equal(t, "user1", updatedPlan.UserID)
+	assert.Equal(t, 42, updatedPlan.HouseholdID)
 	assert.Equal(t, 2, len(updatedPlan.Meals))
 }
 
@@ -437,8 +447,8 @@ func TestDeletePlan(t *testing.T) {
 	// First mock for getting the existing plan for authorization check
 	startDate := time.Now().AddDate(0, 0, 1)
 	endDate := time.Now().AddDate(0, 0, 7)
-	existingPlanRows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "user_id"}).
-		AddRow(1, startDate, endDate, "user1")
+	existingPlanRows := sqlmock.NewRows([]string{"id", "start_date", "end_date", "household_id"}).
+		AddRow(1, startDate, endDate, 42)
 
 	mock.ExpectQuery("SELECT \\* FROM plans WHERE id").
 		WithArgs(1).
@@ -465,9 +475,11 @@ func TestDeletePlan(t *testing.T) {
 	req := httptest.NewRequest("DELETE", "/api/plans/1", nil)
 	rec := httptest.NewRecorder()
 
-	// Set up context with mocked DB and ID
+	// Set up context with mocked DB, ID, and household
 	ctx := context.WithValue(req.Context(), "db", sqlxDB)
 	ctx = context.WithValue(ctx, "id", 1)
+	ctx = context.WithValue(ctx, "household", 42)
+	ctx = context.WithValue(ctx, "user", &clerk.User{ID: "user1"})
 	req = req.WithContext(ctx)
 
 	// Call the handler
@@ -486,17 +498,18 @@ func TestGetPlanIngredients(t *testing.T) {
 		AddRow("Ingredient 1", "1 cup").
 		AddRow("Ingredient 2", "2 tbsp")
 
-	mock.ExpectQuery("SELECT i.name, i.amount FROM meal_ingredients i JOIN plan_meals pm ON pm.meal_id = i.meal_id WHERE pm.plan_id=\\$1").
-		WithArgs(1).
+	mock.ExpectQuery("SELECT i.name, i.amount FROM meal_ingredients i JOIN plan_meals pm ON pm.meal_id = i.meal_id WHERE").
+		WithArgs(1, 42).
 		WillReturnRows(rows)
 
 	// Create request
 	req := httptest.NewRequest("GET", "/api/plans/1/ingredients", nil)
 	rec := httptest.NewRecorder()
 
-	// Set up context with mocked DB and ID
+	// Set up context with mocked DB, ID, and household
 	ctx := context.WithValue(req.Context(), "db", sqlxDB)
 	ctx = context.WithValue(ctx, "id", 1)
+	ctx = context.WithValue(ctx, "household", 42)
 	req = req.WithContext(ctx)
 
 	// Call the handler
