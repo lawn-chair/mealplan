@@ -122,6 +122,34 @@ func main() {
 		})
 	})
 
+	// Serve OpenAPI spec as static file
+	r.Get("/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-yaml")
+		http.ServeFile(w, r, "openapi.yaml")
+	})
+
+	// Serve Redoc documentation viewer
+	r.Get("/docs", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(`<!DOCTYPE html>
+<html>
+  <head>
+    <title>Mealplan API Docs</title>
+    <meta charset=\"utf-8\" />
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+    <style>body { margin: 0; padding: 0; }</style>
+  </head>
+  <body>
+    <redoc spec-url='/openapi.yaml'></redoc>
+	<script src='https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js'></script>
+  </body>
+</html>`))
+	})
+
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/docs", http.StatusFound)
+	})
+
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		api.ErrorResponse(w, "404 - Not Found", http.StatusNotFound)
 	})

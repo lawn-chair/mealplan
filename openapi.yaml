@@ -4,6 +4,22 @@ info:
   version: 1.0.0
   description: API for managing meal plans, recipes, and shopping lists
 
+tags:
+  - name: Recipes
+    description: Operations related to recipes
+  - name: Meals
+    description: Operations related to meals
+  - name: Plans
+    description: Operations related to meal plans
+  - name: Pantry
+    description: Operations related to the pantry
+  - name: ShoppingList
+    description: Operations related to the shopping list
+  - name: Tags
+    description: Operations related to tags
+  - name: Household
+    description: Operations related to household management
+
 servers:
   - url: http://localhost:8080/api
     description: Local development server
@@ -276,6 +292,7 @@ components:
 paths:
   /recipes:
     get:
+      tags: [Recipes]
       summary: Get all recipes
       parameters:
         - name: slug
@@ -305,6 +322,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     post:
+      tags: [Recipes]
       summary: Create a new recipe
       security:
         - BearerAuth: []
@@ -383,6 +401,7 @@ paths:
           type: integer
           format: int64
     get:
+      tags: [Recipes]
       summary: Get a recipe by ID
       responses:
         '200':
@@ -404,6 +423,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     put:
+      tags: [Recipes]
       summary: Update a recipe
       security:
         - BearerAuth: []
@@ -479,6 +499,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     delete:
+      tags: [Recipes]
       summary: Delete a recipe
       security:
         - BearerAuth: []
@@ -506,6 +527,7 @@ paths:
 
   /meals:
     get:
+      tags: [Meals]
       summary: Get all meals
       parameters:
         - name: slug
@@ -535,6 +557,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     post:
+      tags: [Meals]
       summary: Create a new meal
       security:
         - BearerAuth: []
@@ -618,6 +641,7 @@ paths:
           type: integer
           format: int64
     get:
+      tags: [Meals]
       summary: Get a meal by ID
       responses:
         '200':
@@ -639,6 +663,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     put:
+      tags: [Meals]
       summary: Update a meal
       security:
         - BearerAuth: []
@@ -719,6 +744,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     delete:
+      tags: [Meals]
       summary: Delete a meal
       security:
         - BearerAuth: []
@@ -746,6 +772,7 @@ paths:
 
   /plans:
     get:
+      tags: [Plans]
       summary: Get all plans
       parameters:
         - name: last
@@ -787,6 +814,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     post:
+      tags: [Plans]
       summary: Create a new plan
       security:
         - BearerAuth: []
@@ -846,6 +874,7 @@ paths:
           type: integer
           format: int64
     get:
+      tags: [Plans]
       summary: Get a plan by ID
       responses:
         '200':
@@ -867,6 +896,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     put:
+      tags: [Plans]
       summary: Update a plan
       security:
         - BearerAuth: []
@@ -923,6 +953,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     delete:
+      tags: [Plans]
       summary: Delete a plan
       security:
         - BearerAuth: []
@@ -957,6 +988,7 @@ paths:
           type: integer
           format: int64
     get:
+      tags: [Plans]
       summary: Get ingredients for a plan
       responses:
         '200':
@@ -987,6 +1019,7 @@ paths:
 
   /pantry:
     get:
+      tags: [Pantry]
       summary: Get pantry contents
       security:
         - BearerAuth: []
@@ -1010,6 +1043,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     post:
+      tags: [Pantry]
       summary: Create a new pantry
       security:
         - BearerAuth: []
@@ -1052,6 +1086,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     put:
+      tags: [Pantry]
       summary: Update pantry contents
       security:
         - BearerAuth: []
@@ -1094,6 +1129,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     delete:
+      tags: [Pantry]
       summary: Clear pantry contents
       security:
         - BearerAuth: []
@@ -1115,6 +1151,7 @@ paths:
 
   /shopping-list:
     get:
+      tags: [ShoppingList]
       summary: Get the shopping list for the next plan
       security:
         - BearerAuth: []
@@ -1144,6 +1181,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     put:
+      tags: [ShoppingList]
       summary: Update the shopping list (item checked status)
       security:
         - BearerAuth: []
@@ -1181,6 +1219,7 @@ paths:
 
   /tags:
     get:
+      tags: [Tags]
       summary: Get all tags
       description: Returns a list of all tags used in recipes and meals.
       responses:
@@ -1201,6 +1240,7 @@ paths:
 
   /household/join-code:
     post:
+      tags: [Household]
       summary: Generate a join code for the current household
       security:
         - BearerAuth: []
@@ -1220,6 +1260,7 @@ paths:
 
   /household/join:
     post:
+      tags: [Household]
       summary: Join a household using a join code
       security:
         - BearerAuth: []
@@ -1247,6 +1288,7 @@ paths:
 
   /household/leave:
     post:
+      tags: [Household]
       summary: Leave the current household
       security:
         - BearerAuth: []
@@ -1262,6 +1304,7 @@ paths:
 
   /household/remove-member:
     post:
+      tags: [Household]
       summary: Remove a member from the household
       security:
         - BearerAuth: []
@@ -1289,6 +1332,7 @@ paths:
 
   /household:
     get:
+      tags: [Household]
       summary: Get the current user's household
       security:
         - BearerAuth: []
