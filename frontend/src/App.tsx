@@ -50,10 +50,12 @@ function App() {
           <div className="flex-none">
             <ul className="menu menu-horizontal px-1">
               <li><Link to="/" className="link-primary">Home</Link></li>
-              <li><Link to="/recipes" className="link-primary">Recipes</Link></li>
-              <li><Link to="/meals" className="link-primary">Meals</Link></li>
               <SignedIn>
                 <li><Link to="/plans" className="link-primary">Plans</Link></li>
+              </SignedIn>
+              <li><Link to="/meals" className="link-primary">Meals</Link></li>
+              <li><Link to="/recipes" className="link-primary">Recipes</Link></li>
+              <SignedIn>
                 <li><Link to="/pantry" className="link-primary">Pantry</Link></li>
                 <li><Link to="/household" className="link-primary">Household</Link></li>
               </SignedIn>
