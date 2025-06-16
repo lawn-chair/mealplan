@@ -39,17 +39,36 @@ function App() {
 
   return (
     <BrowserRouter>
-      <header className="navbar bg-base-100 shadow-md">
-        <div className="navbar-start">
-          <div className="flex-1">
+      <header className="navbar bg-base-100 shadow-md px-0 py-0 sm:px-4 sm:py-0">
+        <div className="navbar-start flex flex-row sm:flex-row items-center">
+          <div className="flex-none">
             <Link to="/" className="btn btn-ghost normal-case text-xl hover:bg-transparent focus:bg-transparent active:bg-transparent hover:text-inherit focus:text-inherit active:text-inherit">
               <img src="/yum-scheduler-favicon.svg" alt="Yum!" className="h-12 w-auto" />
-              <span className="ml-2 text-primary">Yum!</span>
+              <span className="ml-2 text-primary hidden sm:inline">Yum!</span>
             </Link>
           </div>
-          <div className="flex-none">
+          {/* Mobile dropdown menu (left-aligned) */}
+          <div className="flex-none sm:hidden">
+            <div className="dropdown">
+              <label tabIndex={0} className="btn btn-ghost btn-circle">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+              </label>
+              <ul tabIndex={0} className="menu menu-vertical dropdown-content z-[1] shadow bg-base-100 rounded-box w-52 left-0">
+                <SignedIn>
+                  <li><Link to="/plans" className="link-primary">Plans</Link></li>
+                </SignedIn>
+                <li><Link to="/meals" className="link-primary">Meals</Link></li>
+                <li><Link to="/recipes" className="link-primary">Recipes</Link></li>
+                <SignedIn>
+                  <li><Link to="/pantry" className="link-primary">Pantry</Link></li>
+                  <li><Link to="/household" className="link-primary">Household</Link></li>
+                </SignedIn>
+              </ul>
+            </div>
+          </div>
+          {/* Desktop horizontal menu */}
+          <div className="flex-none hidden sm:block">
             <ul className="menu menu-horizontal px-1">
-              <li><Link to="/" className="link-primary">Home</Link></li>
               <SignedIn>
                 <li><Link to="/plans" className="link-primary">Plans</Link></li>
               </SignedIn>
@@ -61,7 +80,6 @@ function App() {
               </SignedIn>
             </ul>
           </div>
-          
         </div>
         <div className="navbar-end">
           <SignedIn>
