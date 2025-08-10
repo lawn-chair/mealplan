@@ -3,7 +3,7 @@
 ## Big Picture Architecture
 - **Backend (Go):** RESTful API for meal planning, recipes, shopping lists, pantry, tags, and household management. See `mealplan.go` for routing and service boundaries. API endpoints are documented in `openapi.yaml` and served at `/docs`.
 - **Frontend (React + Vite):** Located in `frontend/`, communicates with backend via REST API. Data models/types are mirrored in `frontend/src/api.ts`.
-- **Database:** Managed via SQL migrations in `migrations/` using Goose. Models are defined in `models/` and accessed via SQLX.
+- **Database:** Managed via SQL migrations in `migrations/` using Goose. Never modify an existing migration. Models are defined in `models/` and accessed via SQLX.
 - **Auth:** Uses Clerk for authentication. Backend expects JWT in `Authorization` header. See `api/auth.go` and frontend Clerk integration.
 
 ## Developer Workflows
